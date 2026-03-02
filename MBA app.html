@@ -1,0 +1,1976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>MBA | Madison Basketball</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --dark:    #0a0e14;
+  --mid:     #111722;
+  --surface: #1a2230;
+  --border:  #2a3548;
+  --green:   #1db954;
+  --teal:    #2a8f8f;
+  --red:     #e84040;
+  --amber:   #f5a623;
+  --muted:   #6b7c93;
+  --text:    #e8edf5;
+  --grad:    linear-gradient(135deg,#1db954,#128f3e);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;background:var(--dark);color:var(--text);
+  font-family:'DM Sans',sans-serif;font-size:14px;}
+
+/* ── APP SHELL ─────────────────────────────────── */
+#app{display:flex;flex-direction:column;height:100%;max-width:480px;margin:0 auto;
+  background:var(--dark);position:relative;}
+
+/* ── TOP NAV ───────────────────────────────────── */
+.top-nav{display:flex;align-items:center;gap:0;background:var(--mid);
+  border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;scrollbar-width:none;}
+.top-nav::-webkit-scrollbar{display:none;}
+.nav-btn{flex-shrink:0;padding:12px 14px;font-size:11px;font-weight:600;letter-spacing:1.2px;
+  text-transform:uppercase;color:var(--muted);background:none;border:none;cursor:pointer;
+  border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;}
+.nav-btn.active{color:var(--green);border-bottom-color:var(--green);}
+
+/* ── CONTENT AREA ──────────────────────────────── */
+.content{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+.section{display:none;min-height:100%;padding:16px;}
+.section.active{display:block;}
+
+/* ── CARDS ─────────────────────────────────────── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  margin-bottom:12px;}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid var(--border);}
+.card-title{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;color:var(--text);}
+.card-body{padding:12px 16px;}
+
+/* ── PAGE HEADER ───────────────────────────────── */
+.page-hdr{margin-bottom:16px;}
+.page-title{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;color:var(--text);}
+.page-title span{color:var(--green);}
+.page-sub{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-top:2px;}
+.season-tag{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--green);
+  background:rgba(29,185,84,.1);border:1px solid rgba(29,185,84,.2);border-radius:20px;
+  padding:4px 12px;display:inline-block;margin-bottom:12px;}
+
+/* ── STANDINGS ──────────────────────────────────── */
+.div-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);
+  padding:8px 16px 4px;border-bottom:1px solid var(--border);}
+.st{width:100%;border-collapse:collapse;}
+.st th{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);
+  padding:6px 8px;text-align:right;font-weight:500;}
+.st th:first-child{text-align:left;padding-left:16px;}
+.st td{padding:8px 8px;text-align:right;font-size:12px;border-top:1px solid var(--border);}
+.st td:first-child{text-align:left;padding-left:16px;font-weight:600;}
+.st tr.leader td:first-child{color:var(--green);}
+.st .nm{font-family:'DM Mono',monospace;font-size:12px;}
+.pos{color:var(--green);}
+.neg{color:var(--red);}
+.note{font-size:10px;color:var(--muted);padding:8px 16px;text-align:center;
+  border-top:1px solid var(--border);}
+
+/* ── SCHEDULE ──────────────────────────────────── */
+.week-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  margin-bottom:10px;overflow:hidden;}
+.week-card.now{border-color:var(--green);}
+.week-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.02);}
+.week-label{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;color:var(--muted);}
+.week-date{font-size:10px;color:var(--muted);}
+.now-badge{background:var(--green);color:white;font-size:8px;padding:2px 6px;
+  border-radius:10px;letter-spacing:.5px;font-weight:700;}
+.game-row{display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);
+  cursor:pointer;transition:background .15s;}
+.game-row:last-child{border-bottom:none;}
+.game-row:hover,.game-row:active{background:rgba(255,255,255,.04);}
+.game-row.tbd{cursor:default;opacity:.6;}
+.game-teams{flex:1;display:flex;align-items:center;gap:8px;font-size:12px;}
+.game-team{color:var(--muted);font-weight:500;}
+.game-team.winner{color:var(--text);font-weight:700;}
+.game-vs{font-size:9px;color:var(--border);}
+.game-score{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);white-space:nowrap;}
+.game-score.final{color:var(--text);}
+.game-court{font-size:9px;color:var(--muted);margin:0 4px;flex-shrink:0;white-space:nowrap;}
+.court-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.court-1{background:var(--green);}
+.court-2{background:var(--teal);}
+
+/* ── STATS ──────────────────────────────────────── */
+.stat-filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.sf-btn{padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:none;
+  color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.5px;transition:all .2s;}
+.sf-btn.active{background:var(--grad);border-color:transparent;color:white;}
+.stat-table{width:100%;border-collapse:collapse;}
+.stat-table{width:100%;border-collapse:collapse;font-size:11px;}
+.stat-table th{font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);
+  padding:6px 4px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;}
+.stat-table th:first-child{text-align:left;padding-left:10px;}
+.stat-table th:nth-child(2){text-align:left;}
+.stat-table th.sh-active{color:var(--green);}
+.stat-table td{padding:6px 4px;text-align:right;border-top:1px solid var(--border);}
+.stat-table td.sn{text-align:left;padding-left:10px;font-weight:600;font-size:12px;font-family:'DM Sans',sans-serif;}
+.stat-table td.st{text-align:left;font-size:11px;color:var(--muted);font-family:'DM Sans',sans-serif;}
+.stat-table td.sh-val{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);}
+.stat-table td.sh-val.active-col{color:var(--text);font-weight:600;}
+
+/* ── BOX SCORE OVERLAY ──────────────────────────── */
+#bs-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:200;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;}
+#bs-overlay.open{display:block;}
+.bs-container{max-width:480px;margin:0 auto;padding:16px;}
+.bs-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.bs-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;}
+.bs-close{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:8px 14px;color:var(--muted);font-size:12px;cursor:pointer;}
+.bs-score-bar{display:flex;align-items:center;justify-content:center;gap:20px;
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:20px;margin-bottom:16px;}
+.bs-team{text-align:center;}
+.bs-team-name{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;}
+.bs-score{font-family:'Bebas Neue',sans-serif;font-size:52px;line-height:1;color:var(--text);}
+.bs-score.winner{color:var(--green);}
+.bs-sep{font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--border);}
+.bs-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  overflow:hidden;margin-bottom:12px;}
+.bs-team-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);
+  padding:8px 12px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.02);}
+.bst{width:100%;border-collapse:collapse;font-size:11px;}
+.bst th{font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);
+  padding:5px 6px;text-align:right;border-bottom:1px solid var(--border);}
+.bst th:first-child{text-align:left;padding-left:12px;}
+.bst td{padding:6px 6px;text-align:right;border-top:1px solid var(--border);
+  font-family:'DM Mono',monospace;}
+.bst td:first-child{text-align:left;padding-left:12px;font-family:'DM Sans',sans-serif;font-weight:500;}
+
+/* ── SCOREKEEPER ────────────────────────────────── */
+#scorekeeper{display:none;position:fixed;inset:0;z-index:100;background:var(--dark);
+  flex-direction:column;max-width:480px;margin:0 auto;}
+#scorekeeper.open{display:flex;}
+
+/* Setup screen */
+#sk-setup{flex:1;overflow-y:auto;padding:16px;}
+.sk-setup-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.sk-setup-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:2px;}
+.sk-close-btn{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:8px 14px;color:var(--muted);font-size:12px;cursor:pointer;}
+.setup-team-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:16px;margin-bottom:12px;}
+.setup-team-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+.setup-select{width:100%;background:var(--mid);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-size:13px;padding:10px;outline:none;}
+.setup-roster-preview{margin-top:10px;display:flex;flex-wrap:wrap;gap:4px;}
+.setup-player-chip{background:rgba(29,185,84,.1);border:1px solid rgba(29,185,84,.2);
+  border-radius:20px;padding:3px 10px;font-size:11px;color:var(--green);}
+.setup-start-btn{width:100%;margin-top:16px;padding:16px;background:var(--grad);border:none;
+  border-radius:12px;color:white;font-family:'Bebas Neue',sans-serif;font-size:20px;
+  letter-spacing:2px;cursor:pointer;}
+.setup-start-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+/* Live game */
+#sk-game{display:none;flex-direction:column;height:100%;}
+#sk-game.active{display:flex;}
+
+/* Scoreboard strip */
+#sk-scoreboard{background:linear-gradient(180deg,#1a2235 0%,var(--mid) 100%);
+  border-bottom:1px solid var(--border);flex-shrink:0;padding:10px 16px 8px;}
+.sk-game-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.sk-game-lbl{display:flex;align-items:center;gap:6px;font-size:10px;letter-spacing:2px;
+  text-transform:uppercase;color:var(--muted);}
+.sk-game-actions{display:flex;gap:6px;}
+.sk-stats-btn{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;
+  cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text);}
+.sk-done-btn{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;
+  cursor:pointer;border:1px solid rgba(232,64,64,.4);background:rgba(232,64,64,.1);color:var(--red);}
+.sk-scores-row{display:flex;align-items:stretch;justify-content:space-between;gap:8px;}
+.sk-side{flex:1;display:flex;flex-direction:column;align-items:center;}
+.sk-team-name-lbl{font-size:11px;letter-spacing:2px;text-transform:uppercase;
+  color:var(--muted);font-weight:600;margin-bottom:4px;}
+.sk-big-score{font-family:'Bebas Neue',sans-serif;font-size:76px;line-height:1;
+  color:var(--text);letter-spacing:-2px;}
+.sk-fouls-lbl{font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:2px;}
+.sk-center{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:0 8px;gap:4px;min-width:60px;}
+.sk-live-dot{display:inline-block;width:7px;height:7px;background:var(--red);border-radius:50%;
+  animation:pulse 1.2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+.sk-half-lbl{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;
+  color:white;background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:2px 10px;line-height:1.4;}
+.sk-divider{width:1px;height:40px;background:var(--border);margin:auto;}
+
+/* Possession + foul strip */
+.poss-label{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);flex-shrink:0;}
+.poss-pill{display:flex;align-items:center;gap:6px;background:rgba(29,185,84,.15);
+  border:1px solid rgba(29,185,84,.3);border-radius:20px;padding:4px 12px;cursor:pointer;}
+.poss-pill-icon{font-size:14px;}
+.poss-pill-name{font-size:11px;font-weight:600;color:var(--green);letter-spacing:.5px;}
+
+/* Bonus bar */
+.b-dot{width:6px;height:6px;border-radius:50%;background:var(--border);}
+.b-dot.on{background:var(--green);}
+.b-dot.warn{background:var(--amber);}
+.b-dot.danger{background:var(--red);}
+
+/* Half buttons */
+#sk-controls{background:var(--mid);border-bottom:1px solid var(--border);flex-shrink:0;
+  padding:6px 12px;display:flex;align-items:center;gap:6px;}
+.half-btn{padding:5px 14px;border-radius:6px;border:1px solid var(--border);background:none;
+  color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;letter-spacing:.5px;transition:all .2s;}
+.half-btn.active{background:var(--grad);border-color:transparent;color:white;}
+.end-btn{margin-left:auto;padding:5px 12px;border-radius:6px;border:1px solid var(--border);
+  background:none;color:var(--muted);font-size:10px;cursor:pointer;}
+.jb-btn{padding:5px 14px;border-radius:6px;border:1px solid var(--teal);background:rgba(42,143,143,.1);
+  color:var(--teal);font-size:11px;font-weight:600;cursor:pointer;}
+
+/* Confirm strip */
+
+
+/* Bottom zone */
+#sk-bottom{flex:1;display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.sk-team-tabs{display:flex;border-bottom:1px solid var(--border);}
+.sk-tab{flex:1;padding:10px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;
+  color:var(--muted);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
+.sk-tab.active{color:var(--green);border-bottom-color:var(--green);}
+#sk-player-list{flex:1;overflow-y:auto;padding:8px;}
+.player-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.p-tile{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:12px 8px;cursor:pointer;transition:all .15s;text-align:center;}
+.p-tile:active{transform:scale(.95);}
+.p-tile.selected{border-color:var(--green);background:rgba(29,185,84,.12);}
+.p-tile.sub{border-style:dashed;}
+.p-name{font-size:12px;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:4px;}
+.p-stats{font-size:9px;color:var(--muted);font-family:'DM Mono',monospace;display:flex;justify-content:center;gap:5px;}
+.p-tile.selected .p-name{color:var(--green);}
+.p-tile.flash{animation:flash .3s;}
+@keyframes flash{0%{background:rgba(29,185,84,.4)}100%{background:rgba(29,185,84,.12)}}
+
+/* Stat panel */
+#sk-stat-panel{flex-shrink:0;background:var(--mid);border-top:1px solid var(--border);padding:10px 12px;}
+#sk-stat-panel.hidden{display:none;}
+.sp-player-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.sp-name{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--text);}
+.sp-pts{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;}
+.sp-deselect{font-size:10px;color:var(--muted);padding:4px 10px;border:1px solid var(--border);
+  border-radius:20px;background:none;cursor:pointer;}
+.sp-section-lbl{font-size:8px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+.sp-btns-row{display:flex;gap:5px;margin-bottom:6px;}
+.sp-btn{flex:1;padding:7px 4px;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+  color:var(--text);font-size:11px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s;
+  display:flex;flex-direction:column;align-items:center;gap:2px;}
+.sp-btn:active{transform:scale(.93);}
+.sp-btn .sp-num{font-family:'Bebas Neue',sans-serif;font-size:17px;line-height:1;}
+.sp-btn .sp-sub{font-size:8px;letter-spacing:.5px;color:var(--muted);}
+.sp-btn.made{border-color:rgba(29,185,84,.4);background:rgba(29,185,84,.08);}
+.sp-btn.made .sp-num{color:var(--green);}
+.sp-btn.miss{border-color:rgba(232,64,64,.3);background:rgba(232,64,64,.06);}
+.sp-btn.miss .sp-num{color:var(--red);}
+.sp-btn.other{border-color:var(--border);}
+.sp-btn.foul-btn{border-color:rgba(245,166,35,.3);background:rgba(245,166,35,.06);}
+.sp-btn.foul-btn .sp-num{color:var(--amber);}
+
+/* Foul overlay panels */
+.foul-panel{position:fixed;bottom:0;left:50%;transform:translate(-50%,100%);width:100%;max-width:480px;
+  background:var(--mid);border-top:2px solid var(--amber);border-radius:16px 16px 0 0;
+  padding:16px;z-index:205;transition:transform .25s ease;}
+.foul-panel.open{transform:translate(-50%,0);}
+.fp-question{font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;line-height:1.4;}
+.fp-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.fp-btn{padding:14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);
+  color:var(--text);font-size:12px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;}
+.fp-btn:active{transform:scale(.95);}
+.fp-btn.off{border-color:rgba(232,64,64,.4);color:var(--red);}
+.fp-btn.def{border-color:rgba(29,185,84,.4);color:var(--green);}
+.fp-player-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-height:240px;overflow-y:auto;}
+.fp-player-btn{padding:10px 6px;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+  color:var(--text);font-size:11px;font-weight:600;cursor:pointer;text-align:center;}
+.fp-player-btn:active{transform:scale(.93);}
+.fp-cancel{width:100%;margin-top:10px;padding:10px;border-radius:8px;border:1px solid var(--border);
+  background:none;color:var(--muted);font-size:12px;cursor:pointer;}
+
+/* Jump ball overlay */
+#jb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:300;
+  align-items:center;justify-content:center;}
+#jb-overlay.open{display:flex;}
+.jb-box{background:var(--mid);border:1px solid var(--border);border-radius:16px;
+  padding:24px;width:90%;max-width:360px;text-align:center;}
+.jb-title{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;margin-bottom:6px;}
+.jb-sub{font-size:12px;color:var(--muted);margin-bottom:20px;}
+.jb-btns{display:flex;flex-direction:column;gap:8px;}
+.jb-team-btn{width:100%;padding:14px;border-radius:10px;border:1px solid var(--green);
+  background:rgba(29,185,84,.1);color:var(--green);font-size:14px;font-weight:700;cursor:pointer;
+  transition:all .15s;}
+.jb-team-btn:active{background:rgba(29,185,84,.3);}
+
+/* Stats overlay */
+#sk-stats-overlay{display:none;position:fixed;inset:0;background:var(--dark);z-index:150;
+  overflow-y:auto;padding:16px;max-width:480px;margin:0 auto;}
+#sk-stats-overlay.open{display:block;}
+.sso-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.sso-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;}
+.sso-close{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+  color:var(--muted);font-size:12px;cursor:pointer;}
+
+/* Sequence banner */
+#sk-seq-banner{position:fixed;top:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;
+  background:rgba(10,14,20,.95);border-bottom:2px solid var(--green);padding:8px 14px;
+  z-index:90;display:none;font-size:12px;color:var(--green);}
+
+.pool-tabs{display:flex;gap:0;margin-bottom:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:3px;width:fit-content;}
+.pool-btn{padding:5px 16px;border-radius:6px;border:none;background:none;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;}
+.pool-btn.active{background:var(--grad);color:white;}
+
+.sched-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.sched-table{width:100%;border-collapse:collapse;min-width:340px;}
+.sched-table th{font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);
+  padding:8px 6px;text-align:center;border-bottom:2px solid var(--border);background:var(--surface);
+  white-space:nowrap;}
+.sched-table th.wk-hdr{text-align:left;padding-left:10px;color:var(--muted);}
+.sched-table td{padding:7px 6px;text-align:center;border-top:1px solid var(--border);font-size:12px;vertical-align:middle;}
+.sched-table td.wk-cell{text-align:left;padding-left:10px;white-space:nowrap;}
+.wk-num{font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:1px;color:var(--text);}
+.wk-dt{font-size:10px;color:var(--muted);display:block;}
+.sched-table tr.now-row td{background:rgba(29,185,84,.05);}
+.sched-table tr.now-row td.wk-cell{border-left:2px solid var(--green);}
+.game-cell{cursor:pointer;border-radius:6px;padding:4px 6px;transition:background .15s;}
+.game-cell:hover{background:rgba(255,255,255,.06);}
+.game-cell.tbd{cursor:default;opacity:.5;}
+.gc-teams{font-size:11px;font-weight:600;color:var(--text);}
+.gc-score{font-family:'DM Mono',monospace;font-size:10px;color:var(--green);margin-top:1px;}
+.gc-vs{color:var(--muted);font-size:9px;margin:0 3px;}
+.court-hdr-1{border-bottom-color:var(--green);}
+.court-hdr-2{border-bottom-color:var(--teal);}
+.playoff-row td{text-align:left;padding:10px;font-size:12px;color:var(--muted);font-style:italic;}
+.playoff-row td.wk-cell{color:var(--amber);font-weight:600;font-style:normal;}
+
+.matchup-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:14px 16px;margin-bottom:10px;cursor:pointer;display:flex;align-items:center;
+  gap:12px;transition:all .15s;}
+.matchup-card:active{transform:scale(.98);border-color:var(--green);}
+.matchup-court{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);
+  flex-shrink:0;width:70px;}
+.matchup-teams{flex:1;display:flex;align-items:center;gap:8px;}
+.matchup-team{font-size:14px;font-weight:700;color:var(--text);}
+.matchup-vs{font-size:10px;color:var(--muted);}
+.matchup-arrow{color:var(--green);font-size:12px;flex-shrink:0;}
+
+.sub-grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.sub-chip{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;
+  border:1px solid rgba(29,185,84,.3);background:rgba(29,185,84,.1);cursor:pointer;transition:all .15s;}
+.sub-chip.sub{border-color:rgba(245,166,35,.3);background:rgba(245,166,35,.08);}
+.sub-chip.excluded{border-color:rgba(232,64,64,.3);background:rgba(232,64,64,.08);opacity:.6;}
+.sub-chip-name{font-size:12px;font-weight:600;color:var(--text);}
+.sub-chip-status{font-size:10px;color:var(--green);}
+.sub-chip.excluded .sub-chip-status{color:var(--red);}
+.sub-add-row{display:flex;gap:8px;margin-bottom:4px;}
+.sub-input{flex:1;background:var(--mid);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-size:13px;padding:8px 12px;outline:none;}
+.sub-add-btn{padding:8px 14px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface);color:var(--green);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;}
+
+.fp-confirm-yes{background:rgba(29,185,84,.15);border-color:rgba(29,185,84,.4);color:var(--green);font-size:14px;font-weight:700;}
+.fp-confirm-no{background:rgba(232,64,64,.1);border-color:rgba(232,64,64,.4);color:var(--red);font-size:14px;font-weight:700;}
+
+/* Possession summary panel */
+#poss-summary-panel{position:fixed;bottom:0;left:50%;transform:translate(-50%,100%);
+  width:100%;max-width:480px;background:var(--mid);border-top:2px solid var(--green);
+  border-radius:16px 16px 0 0;padding:16px;z-index:206;transition:transform .25s ease;
+  box-sizing:border-box;}
+#poss-summary-panel.open{transform:translate(-50%,0);}
+.poss-summary-title{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+.poss-summary-sentence{font-size:14px;color:var(--text);line-height:1.6;margin-bottom:14px;font-weight:500;}
+.poss-summary-sentence span.ev{color:var(--green);}
+.poss-summary-btns{display:flex;gap:8px;}
+.poss-confirm-btn{flex:1;padding:12px;border-radius:10px;border:none;background:var(--green);
+  color:white;font-size:13px;font-weight:700;cursor:pointer;}
+.poss-edit-btn{flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);
+  background:var(--surface);color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;}
+
+#sk-toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+  background:rgba(232,64,64,.9);color:white;padding:8px 18px;border-radius:20px;
+  font-size:12px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .2s;z-index:300;}
+#sk-toast.show{opacity:1;}
+
+.bst-name{position:sticky;left:0;background:var(--dark);z-index:1;white-space:nowrap;}
+thead .bst-name{background:var(--mid);}
+
+.foul-lbl{font-size:10px;font-weight:700;margin-top:3px;font-family:'DM Mono',monospace;}
+.foul-lbl-on{color:var(--muted);}
+.foul-lbl-warn{color:var(--amber);}
+.foul-lbl-out{color:var(--red);}
+.p-tile.foul-warning{border-color:rgba(245,166,35,.5);}
+.p-tile.foul-warning .p-name{color:var(--amber);}
+.p-tile.fouled-out{border-color:rgba(232,64,64,.5);}
+.p-tile.fouled-out .p-name{color:var(--red);}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- TOP NAV -->
+  <nav class="top-nav">
+    <button class="nav-btn active" onclick="showTab('standings',this)">Standings</button>
+    <button class="nav-btn" onclick="showTab('schedule',this)">Schedule</button>
+    <button class="nav-btn" onclick="showTab('stats',this)">Stats</button>
+    <button class="nav-btn" onclick="openScorekeeperSetup()">🏀 Live</button>
+  </nav>
+
+  <div class="content">
+    <!-- STANDINGS -->
+    <div id="standings" class="section active">
+      <div class="page-hdr">
+        <div class="page-title">League <span>Standings</span></div>
+        <div class="page-sub">Spring 2026 Season</div>
+      </div>
+      <div class="season-tag">🏀 Spring 2026 — MBA Madison, WI</div>
+      <div class="card">
+        <div class="card-hdr"><span class="card-title">FreeHouse Division</span></div>
+        <table class="st">
+          <thead><tr><th>Team</th><th>W</th><th>L</th><th>Div</th><th>Diff</th></tr></thead>
+          <tbody id="standings-freehouse"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><span class="card-title">Delaney's Division</span></div>
+        <table class="st">
+          <thead><tr><th>Team</th><th>W</th><th>L</th><th>Div</th><th>Diff</th></tr></thead>
+          <tbody id="standings-delaneys"></tbody>
+        </table>
+        <div class="note">📋 Standings update automatically as games complete</div>
+      </div>
+    </div>
+
+    <!-- SCHEDULE -->
+    <div id="schedule" class="section">
+      <div class="page-hdr">
+        <div class="page-title">Spring <span>Schedule</span></div>
+        <div class="page-sub">2026 Season — 10 Weeks</div>
+      </div>
+      <div id="schedule-weeks"></div>
+
+    </div>
+
+    <!-- STATS -->
+    <div id="stats" class="section">
+      <div class="page-hdr">
+        <div class="page-title">Player <span>Stats</span></div>
+        <div class="page-sub">Spring 2026 — Weeks 1–5</div>
+      </div>
+      <div id="stats-pool-btn" data-pool="rostered" style="display:none"></div>
+      <div class="pool-tabs">
+        <button class="pool-btn active" onclick="switchStatsPool('rostered',this)">Rostered</button>
+        <button class="pool-btn" onclick="switchStatsPool('subs',this)">Subs</button>
+      </div>
+      
+      <div class="card">
+        <table class="stat-table" id="stat-table-body">
+          <thead><tr><th>Player</th><th class="sh" data-stat="pts" onclick="renderStats('pts',null)">PPG</th><th class="sh" data-stat="fg" onclick="renderStats('fg',null)">FG%</th><th class="sh" data-stat="3p" onclick="renderStats('3p',null)">3P%</th><th class="sh" data-stat="ft" onclick="renderStats('ft',null)">FT%</th><th class="sh" data-stat="reb" onclick="renderStats('reb',null)">REB</th><th class="sh" data-stat="ast" onclick="renderStats('ast',null)">AST</th><th class="sh" data-stat="blk" onclick="renderStats('blk',null)">BLK</th><th class="sh" data-stat="stl" onclick="renderStats('stl',null)">STL</th></tr></thead>
+          <tbody id="stat-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BOX SCORE OVERLAY -->
+<div id="bs-overlay">
+  <div class="bs-container">
+    <div class="bs-header">
+      <div class="bs-title" id="bs-title">Box Score</div>
+      <button class="bs-close" onclick="closeBoxScore()">✕ Close</button>
+    </div>
+    <div id="bs-content"></div>
+  </div>
+</div>
+
+<!-- JUMP BALL OVERLAY -->
+<div id="jb-overlay">
+  <div class="jb-box">
+    <div class="jb-title" id="jb-title">JUMP BALL</div>
+    <div class="jb-sub" id="jb-sub">Who wins the tip?</div>
+    <div class="jb-btns" id="jb-btns"></div>
+  </div>
+</div>
+
+<!-- SCOREKEEPER -->
+<div id="scorekeeper">
+  <!-- SETUP -->
+  <div id="sk-setup">
+    <div class="sk-setup-hdr">
+      <div class="sk-setup-title">NEW GAME</div>
+      <button class="sk-close-btn" onclick="closeScorekeeper()">✕ Cancel</button>
+    </div>
+    <div class="setup-team-card">
+      <div class="setup-team-label">🏠 Home Team Captain</div>
+      <select class="setup-select" id="setup-home" onchange="previewRoster('home')">
+        <option value="">— Select Captain —</option>
+      </select>
+      <div class="setup-roster-preview" id="home-preview"></div>
+    </div>
+    <div class="setup-team-card">
+      <div class="setup-team-label">✈️ Away Team Captain</div>
+      <select class="setup-select" id="setup-away" onchange="previewRoster('away')">
+        <option value="">— Select Captain —</option>
+      </select>
+      <div class="setup-roster-preview" id="away-preview"></div>
+    </div>
+    <button class="setup-start-btn" id="start-btn" onclick="startGame()" disabled>START GAME</button>
+  </div>
+
+  <!-- LIVE GAME -->
+  <div id="sk-game">
+    <!-- Scoreboard -->
+    <div id="sk-scoreboard">
+      <div class="sk-game-title-row">
+        <div class="sk-game-lbl"><span class="sk-live-dot"></span> LIVE</div>
+        <div class="sk-game-actions">
+          <button class="sk-stats-btn" onclick="toggleStatsOverlay()">📊 Stats</button>
+          <button class="sk-done-btn" onclick="endGame()">✕ Done</button>
+        </div>
+      </div>
+      <div class="sk-scores-row">
+        <div class="sk-side">
+          <div class="sk-team-name-lbl" id="sk-home-name">HOME</div>
+          <div class="sk-big-score" id="sk-home-score">0</div>
+          <div class="sk-fouls-lbl" id="sk-home-fouls">0 fouls</div>
+        </div>
+        <div class="sk-center">
+          <div class="sk-half-lbl" id="sk-half-lbl">1ST</div>
+          <div class="sk-divider"></div>
+        </div>
+        <div class="sk-side">
+          <div class="sk-team-name-lbl" id="sk-away-name">AWAY</div>
+          <div class="sk-big-score" id="sk-away-score">0</div>
+          <div class="sk-fouls-lbl" id="sk-away-fouls">0 fouls</div>
+        </div>
+      </div>
+      <!-- Alternating possession indicator -->
+      <div id="sk-poss-row" style="display:none;text-align:center;padding:5px 0 2px;font-size:9px;letter-spacing:1.5px;color:var(--muted);">
+        POSS <span id="sk-poss-arrow" style="color:var(--amber);font-weight:700;font-size:11px;"></span>
+      </div>
+    </div>
+
+
+
+    <!-- Half controls -->
+    <div id="sk-controls">
+      <button class="half-btn active" id="half-1" onclick="setHalf(1,this)">1ST</button>
+      <button class="half-btn" id="half-2" onclick="setHalf(2,this)">2ND</button>
+      <button class="half-btn" id="half-3" onclick="setHalf(3,this)">3RD</button>
+      <button class="half-btn" id="half-4" onclick="setHalf(4,this)">4TH</button>
+      <button class="half-btn" id="half-ot" onclick="setHalf('OT',this)">OT</button>
+      <button class="end-btn" onclick="endGame()">END</button>
+    </div>
+
+
+
+    <!-- Bottom zone -->
+    <div id="sk-bottom">
+      <div class="sk-team-tabs">
+        <button class="sk-tab active" id="sk-tab-home" onclick="switchTeam('home',this)">HOME</button>
+        <button class="sk-tab" id="sk-tab-away" onclick="switchTeam('away',this)">AWAY</button>
+      </div>
+      <div id="sk-stat-panel">
+        <div class="sp-player-row">
+          <div class="sp-name" id="sp-name">—</div>
+          <div class="sp-pts" id="sp-pts">0 PTS</div>
+          <button class="sp-deselect" onclick="deselectPlayer()">✕ deselect</button>
+        </div>
+        <div class="sp-section-lbl">MADE</div>
+        <div class="sp-btns-row">
+          <button class="sp-btn made" onclick="recordStat('m2')"><span class="sp-num">2</span><span class="sp-sub">MADE 2</span></button>
+          <button class="sp-btn made" onclick="recordStat('m3')"><span class="sp-num">3</span><span class="sp-sub">MADE 3</span></button>
+        </div>
+        <div class="sp-section-lbl">MISSED</div>
+        <div class="sp-btns-row">
+          <button class="sp-btn miss" onclick="recordStat('x2')"><span class="sp-num">2</span><span class="sp-sub">MISS 2</span></button>
+          <button class="sp-btn miss" onclick="recordStat('x3')"><span class="sp-num">3</span><span class="sp-sub">MISS 3</span></button>
+        </div>
+        <div class="sp-section-lbl">OTHER</div>
+        <div class="sp-btns-row">
+          <button class="sp-btn foul-btn" onclick="openFoulPanel()"><span class="sp-num">F</span><span class="sp-sub">FOUL</span></button>
+          <button class="sp-btn other" onclick="recordStat('blk')"><span class="sp-num">B</span><span class="sp-sub">BLK</span></button>
+          <button class="sp-btn other" onclick="recordStat('to')"><span class="sp-num">T</span><span class="sp-sub">TO</span></button>
+        </div>
+      </div>
+      <div id="sk-player-list"><div class="player-grid" id="sk-grid"></div></div>
+    </div>
+  </div>
+
+  <!-- Stats overlay -->
+  <div id="sk-stats-overlay">
+    <div class="sso-hdr">
+      <div class="sso-title">LIVE BOX SCORE</div>
+      <button class="sso-close" onclick="toggleStatsOverlay()">✕ Close</button>
+    </div>
+    <div id="sso-content"></div>
+  </div>
+</div>
+
+<!-- Foul panels -->
+<div class="foul-panel" id="foul-type-panel">
+  <div class="fp-question" id="foul-type-q">Who committed the foul?</div>
+  <div class="fp-grid">
+    <button class="fp-btn off" onclick="commitFoulType('offensive')">💥 Offensive<br><small>Charge / Push</small></button>
+    <button class="fp-btn def" onclick="commitFoulType('defensive')">🛡 Defensive<br><small>Shooting / Personal</small></button>
+  </div>
+  <button class="fp-cancel" onclick="closeFoulPanels()">Cancel</button>
+</div>
+
+<div class="foul-panel" id="foul-committer-panel">
+  <div class="fp-question" id="foul-committer-q">Who committed the foul?</div>
+  <div class="fp-player-grid" id="foul-committer-grid"></div>
+  <button class="fp-cancel" onclick="closeFoulPanels()">Cancel</button>
+</div>
+
+<div id="sk-toast"></div>
+
+<!-- Possession summary panel -->
+<div id="poss-summary-panel">
+  <div class="poss-summary-title">POSSESSION SUMMARY</div>
+  <div class="poss-summary-sentence" id="poss-summary-text"></div>
+  <div class="poss-summary-btns">
+    <button class="poss-edit-btn" onclick="editPossession()">✏️ Edit</button>
+    <button class="poss-confirm-btn" onclick="confirmPossession()">Confirm ✓</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// GAME DATA
+// ══════════════════════════════════════════════════════
+</script>
+<script id="game-data-script">
+const historicalGames = [
+  {id:'g_w1_1',week:1,date:'18-Jan',court:'Court 1 - 6:30',status:'final',
+   home:{name:'TJ',score:74,players:[{name:'Carter',pts:7,m2:2,m3:1,mft:0,x2:1,x3:4,xft:0,reb:6,ast:0,blk:1,stl:0,to:5,fls:0},{name:'Chase Kieler',pts:36,m2:11,m3:4,mft:2,x2:7,x3:2,xft:0,reb:5,ast:1,blk:0,stl:0,to:1,fls:0},{name:'Danny',pts:8,m2:3,m3:0,mft:2,x2:1,x3:3,xft:2,reb:7,ast:4,blk:0,stl:0,to:1,fls:0},{name:'Gibbs',pts:8,m2:0,m3:1,mft:5,x2:0,x3:2,xft:1,reb:4,ast:1,blk:0,stl:1,to:0,fls:0},{name:'Wedel',pts:12,m2:4,m3:0,mft:4,x2:5,x3:3,xft:1,reb:9,ast:1,blk:2,stl:0,to:4,fls:0},{name:'Sir',pts:3,m2:0,m3:1,mft:0,x2:0,x3:2,xft:0,reb:1,ast:1,blk:0,stl:0,to:0,fls:0}]},
+   away:{name:'Zack',score:70,players:[{name:'Sam Wilk',pts:22,m2:5,m3:2,mft:6,x2:6,x3:6,xft:1,reb:5,ast:0,blk:0,stl:2,to:2,fls:0},{name:'Shravan',pts:29,m2:8,m3:2,mft:7,x2:3,x3:7,xft:1,reb:6,ast:3,blk:1,stl:0,to:3,fls:0},{name:'Sam BZ',pts:5,m2:1,m3:1,mft:0,x2:0,x3:2,xft:0,reb:6,ast:0,blk:0,stl:0,to:0,fls:0},{name:'Zack',pts:4,m2:2,m3:0,mft:0,x2:4,x3:4,xft:0,reb:2,ast:0,blk:0,stl:1,to:1,fls:0},{name:'Willie',pts:4,m2:2,m3:0,mft:0,x2:2,x3:0,xft:0,reb:4,ast:2,blk:0,stl:1,to:0,fls:0},{name:'Tall Matt',pts:6,m2:0,m3:2,mft:0,x2:0,x3:0,xft:0,reb:3,ast:0,blk:0,stl:1,to:1,fls:0}]}
+  },
+  {id:'g_w1_2',week:1,date:'18-Jan',court:'Court 3 - 6:30',status:'final',
+   home:{name:'Derek',score:85,players:[{name:'Jack',pts:38,m2:15,m3:1,mft:5,x2:4,x3:4,xft:2,reb:20,ast:0,blk:0,stl:0,to:0,fls:0},{name:'Ziemer',pts:11,m2:1,m3:3,mft:0,x2:1,x3:6,xft:0,reb:8,ast:3,blk:2,stl:0,to:1,fls:0},{name:'Lewis',pts:18,m2:5,m3:2,mft:2,x2:8,x3:4,xft:2,reb:10,ast:4,blk:0,stl:0,to:1,fls:0},{name:'Derek',pts:9,m2:2,m3:1,mft:2,x2:3,x3:3,xft:0,reb:3,ast:1,blk:0,stl:0,to:0,fls:0},{name:'Hobert',pts:9,m2:1,m3:2,mft:1,x2:2,x3:2,xft:1,reb:3,ast:1,blk:0,stl:0,to:0,fls:0},{name:'Gallman',pts:0,m2:0,m3:0,mft:0,x2:0,x3:0,xft:0,reb:3,ast:0,blk:0,stl:0,to:0,fls:0}]},
+   away:{name:'Cooper',score:70,players:[{name:'Armga',pts:32,m2:10,m3:1,mft:9,x2:10,x3:4,xft:6,reb:5,ast:3,blk:1,stl:0,to:0,fls:0},{name:'Macon',pts:6,m2:1,m3:1,mft:1,x2:2,x3:5,xft:0,reb:10,ast:2,blk:0,stl:1,to:0,fls:0},{name:'Sean F',pts:10,m2:4,m3:0,mft:2,x2:7,x3:5,xft:3,reb:9,ast:0,blk:1,stl:1,to:0,fls:0},{name:'Cooper',pts:8,m2:1,m3:2,mft:0,x2:0,x3:4,xft:1,reb:6,ast:2,blk:0,stl:0,to:0,fls:0},{name:'Donny',pts:10,m2:2,m3:2,mft:0,x2:0,x3:2,xft:0,reb:6,ast:3,blk:0,stl:0,to:0,fls:0},{name:'Mike F',pts:4,m2:2,m3:0,mft:0,x2:0,x3:0,xft:1,reb:1,ast:0,blk:0,stl:0,to:0,fls:0}]}
+  },
+  {id:'g_w1_3',week:1,date:'18-Jan',court:'Court 1 - 7:30',status:'final',
+   home:{name:'Olson',score:91,players:[{name:'Chandler',pts:19,m2:8,m3:0,mft:3,x2:6,x3:1,xft:1,reb:11,ast:4,blk:0,stl:0,to:1,fls:0},{name:'Siebert',pts:17,m2:3,m3:3,mft:2,x2:3,x3:5,xft:1,reb:5,ast:6,blk:0,stl:0,to:0,fls:0},{name:'Les Wilk',pts:16,m2:2,m3:4,mft:0,x2:1,x3:1,xft:0,reb:6,ast:0,blk:0,stl:0,to:0,fls:0},{name:'Tyler Olson',pts:21,m2:3,m3:5,mft:0,x2:2,x3:2,xft:0,reb:4,ast:3,blk:0,stl:0,to:0,fls:0},{name:'Jesse Temple',pts:16,m2:2,m3:3,mft:3,x2:2,x3:3,xft:1,reb:3,ast:3,blk:0,stl:0,to:0,fls:0},{name:'Younggren',pts:2,m2:1,m3:0,mft:0,x2:0,x3:2,xft:0,reb:2,ast:1,blk:0,stl:0,to:0,fls:0}]},
+   away:{name:'Akim',score:86,players:[{name:'Reetz',pts:27,m2:3,m3:7,mft:0,x2:1,x3:11,xft:0,reb:7,ast:2,blk:0,stl:0,to:0,fls:0},{name:'Jake B',pts:17,m2:1,m3:5,mft:0,x2:1,x3:8,xft:0,reb:6,ast:4,blk:0,stl:0,to:0,fls:0},{name:'Tordoff',pts:24,m2:4,m3:5,mft:1,x2:0,x3:9,xft:0,reb:3,ast:4,blk:0,stl:0,to:0,fls:0},{name:'Karls',pts:10,m2:5,m3:0,mft:0,x2:2,x3:3,xft:0,reb:6,ast:2,blk:2,stl:0,to:1,fls:0},{name:'Kahl',pts:5,m2:1,m3:1,mft:0,x2:2,x3:4,xft:0,reb:4,ast:5,blk:0,stl:0,to:0,fls:0},{name:'Scotty',pts:3,m2:0,m3:1,mft:0,x2:0,x3:4,xft:0,reb:6,ast:1,blk:0,stl:0,to:0,fls:0}]}
+  },
+  {id:'g_w1_4',week:1,date:'18-Jan',court:'Court 3 - 7:30',status:'final',
+   home:{name:'Alex',score:67,players:[{name:'Nate Rohrer',pts:11,m2:4,m3:0,mft:3,x2:6,x3:5,xft:2,reb:5,ast:3,blk:0,stl:4,to:2,fls:0},{name:'Ty Parman',pts:28,m2:7,m3:4,mft:2,x2:0,x3:2,xft:0,reb:4,ast:0,blk:0,stl:2,to:2,fls:0},{name:'Watts',pts:13,m2:5,m3:0,mft:3,x2:4,x3:4,xft:5,reb:10,ast:4,blk:0,stl:1,to:3,fls:0},{name:'Alex',pts:4,m2:2,m3:0,mft:0,x2:5,x3:0,xft:0,reb:3,ast:3,blk:0,stl:0,to:0,fls:0},{name:'Mike Amend',pts:5,m2:1,m3:1,mft:0,x2:1,x3:2,xft:0,reb:2,ast:3,blk:0,stl:2,to:1,fls:0},{name:'Roy',pts:6,m2:0,m3:2,mft:0,x2:2,x3:4,xft:0,reb:1,ast:0,blk:0,stl:1,to:0,fls:0}]},
+   away:{name:'Timmy',score:71,players:[{name:'Minnerly',pts:9,m2:2,m3:1,mft:2,x2:1,x3:2,xft:0,reb:10,ast:7,blk:0,stl:0,to:2,fls:0},{name:'Sam P',pts:20,m2:7,m3:1,mft:3,x2:3,x3:0,xft:1,reb:8,ast:3,blk:0,stl:3,to:3,fls:0},{name:'Marty',pts:13,m2:1,m3:2,mft:5,x2:3,x3:4,xft:5,reb:7,ast:4,blk:0,stl:2,to:5,fls:0},{name:'Timmy',pts:17,m2:2,m3:3,mft:4,x2:2,x3:4,xft:1,reb:2,ast:1,blk:1,stl:1,to:3,fls:0},{name:'Ty S',pts:6,m2:3,m3:0,mft:0,x2:3,x3:1,xft:1,reb:5,ast:0,blk:0,stl:1,to:1,fls:0},{name:'Dave F',pts:6,m2:0,m3:2,mft:0,x2:0,x3:3,xft:0,reb:1,ast:0,blk:0,stl:0,to:0,fls:0}]}
+  },
+  {id:'g_w2_1',week:2,date:'25-Jan',court:'Court 1 - 6:30',status:'final',
+   home:{name:'Alex',score:106,players:[{name:'Nate Rohrer',pts:24,m2:9,m3:2,mft:0,x2:3,x3:0,xft:0,reb:5,ast:5,blk:0,stl:1,to:3,fls:0},{name:'Ty Parman',pts:25,m2:5,m3:5,mft:0,x2:4,x3:1,xft:0,reb:9,ast:5,blk:0,stl:1,to:0,fls:0},{name:'Watts',pts:16,m2:5,m3:2,mft:0,x2:4,x3:2,xft:0,reb:9,ast:8,blk:2,stl:4,to:2,fls:0},{name:'Alex',pts:8,m2:3,m3:0,mft:2,x2:3,x3:0,xft:0,reb:2,ast:2,blk:0,stl:1,to:0,fls:0},{name:'Boone',pts:22,m2:5,m3:4,mft:0,x2:1,x3:0,xft:0,reb:3,ast:4,blk:0,stl:4,to:1,fls:0},{name:'Roy',pts:11,m2:1,m3:3,mft:0,x2:1,x3:4,xft:0,reb:2,ast:0,blk:0,stl:1,to:0,fls:0}]},
+   away:{name:'Akim',score:70,players:[{name:'Reetz',pts:28,m2:4,m3:4,mft:8,x2:1,x3:9,xft:1,reb:8,ast:3,blk:0,stl:2,to:5,fls:0},{name:'Jake B',pts:7,m2:2,m3:1,mft:0,x2:2,x3:5,xft:0,reb:2,ast:2,blk:0,stl:0,to:4,fls:0},{name:'Nate Ray',pts:14,m2:3,m3:1,mft:5,x2:1,x3:2,xft:1,reb:3,ast:4,blk:0,stl:2,to:0,fls:0},{name:'Akim',pts:5,m2:1,m3:1,mft:0,x2:3,x3:5,xft:0,reb:5,ast:2,blk:0,stl:0,to:2,fls:0},{name:'Kahl',pts:8,m2:1,m3:2,mft:0,x2:0,x3:2,xft:2,reb:6,ast:1,blk:0,stl:0,to:0,fls:0},{name:'Scotty',pts:8,m2:4,m3:0,mft:0,x2:0,x3:3,xft:0,reb:1,ast:0,blk:0,stl:0,to:1,fls:0}]}
+  },
+  {id:'g_w2_2',week:2,date:'25-Jan',court:'Court 3 - 6:30',status:'final',
+   home:{name:'Olson',score:70,players:[{name:'Chandler',pts:24,m2:9,m3:0,mft:6,x2:3,x3:1,xft:3,reb:14,ast:2,blk:0,stl:2,to:2,fls:0},{name:'Siebert',pts:13,m2:2,m3:2,mft:3,x2:0,x3:8,xft:2,reb:4,ast:1,blk:0,stl:0,to:1,fls:0},{name:'Hertz',pts:17,m2:4,m3:2,mft:3,x2:3,x3:6,xft:1,reb:7,ast:1,blk:0,stl:1,to:2,fls:0},{name:'Tyler Olson',pts:8,m2:1,m3:2,mft:0,x2:1,x3:4,xft:0,reb:3,ast:0,blk:0,stl:0,to:0,fls:0},{name:'Jesse Temple',pts:8,m2:0,m3:2,mft:2,x2:2,x3:6,xft:2,reb:5,ast:0,blk:0,stl:1,to:1,fls:0},{name:'Younggren',pts:0,m2:0,m3:0,mft:0,x2:0,x3:1,xft:0,reb:0,ast:0,blk:0,stl:0,to:1,fls:0}]},
+   away:{name:'Timmy',score:65,players:[{name:'Minnerly',pts:21,m2:6,m3:2,mft:3,x2:4,x3:4,xft:0,reb:6,ast:1,blk:0,stl:2,to:1,fls:0},{name:'Mike Brand',pts:5,m2:1,m3:1,mft:0,x2:0,x3:5,xft:0,reb:6,ast:5,blk:0,stl:2,to:1,fls:0},{name:'Marty',pts:7,m2:2,m3:1,mft:0,x2:4,x3:5,xft:0,reb:14,ast:5,blk:0,stl:0,to:2,fls:0},{name:'Timmy',pts:19,m2:2,m3:5,mft:0,x2:1,x3:7,xft:0,reb:8,ast:1,blk:0,stl:0,to:3,fls:0},{name:'Ty S',pts:10,m2:4,m3:0,mft:2,x2:6,x3:1,xft:0,reb:12,ast:2,blk:0,stl:1,to:1,fls:0},{name:'Plotkin',pts:3,m2:0,m3:1,mft:0,x2:0,x3:4,xft:0,reb:0,ast:0,blk:0,stl:0,to:0,fls:0}]}
+  },
+  {id:'g_w2_3',week:2,date:'25-Jan',court:'Court 1 - 7:30',status:'final',
+   home:{name:'Derek',score:81,players:[{name:'Torin',pts:10,m2:2,m3:2,mft:0,x2:0,x3:7,xft:0,reb:10,ast:2,blk:1,stl:1,to:1,fls:0},{name:'Ziemer',pts:21,m2:5,m3:2,mft:5,x2:1,x3:9,xft:3,reb:13,ast:4,blk:0,stl:1,to:1,fls:0},{name:'Lewis',pts:14,m2:7,m3:0,mft:0,x2:5,x3:8,xft:2,reb:6,ast:5,blk:0,stl:0,to:2,fls:0},{name:'Derek',pts:23,m2:3,m3:5,mft:2,x2:1,x3:3,xft:0,reb:4,ast:0,blk:0,stl:0,to:2,fls:0},{name:'Carson',pts:13,m2:5,m3:1,mft:0,x2:2,x3:2,xft:0,reb:4,ast:0,blk:0,stl:0,to:0,fls:0},{name:'Jamie',pts:0,m2:0,m3:0,mft:0,x2:2,x3:1,xft:2,reb:5,ast:0,blk:0,stl:0,to:4,fls:0}]},
+   away:{name:'Zack',score:92,players:[{name:'Sam Wilk',pts:24,m2:9,m3:1,mft:3,x2:10,x3:1,xft:0,reb:5,ast:2,blk:0,stl:2,to:1,fls:0},{name:'Shravan',pts:41,m2:8,m3:7,mft:4,x2:6,x3:6,xft:1,reb:9,ast:2,blk:0,stl:0,to:1,fls:0},{name:'Justin',pts:12,m2:0,m3:4,mft:0,x2:1,x3:5,xft:0,reb:6,ast:1,blk:0,stl:1,to:1,fls:0},{name:'Zack',pts:13,m2:5,m3:1,mft:0,x2:7,x3:1,xft:0,reb:8,ast:2,blk:0,stl:1,to:0,fls:0},{name:'Willie',pts:2,m2:1,m3:0,mft:0,x2:5,x3:1,xft:0,reb:8,ast:1,blk:0,stl:2,to:1,fls:0},{name:'Tall Matt',pts:0,m2:0,m3:0,mft:0,x2:0,x3:1,xft:0,reb:4,ast:0,blk:1,stl:0,to:0,fls:0}]}
+  },
+  {id:'g_w2_4',week:2,date:'25-Jan',court:'Court 3 - 7:30',status:'final',
+   home:{name:'TJ',score:85,players:[{name:'Noah',pts:18,m2:1,m3:5,mft:1,x2:1,x3:6,xft:3,reb:4,ast:2,blk:1,stl:0,to:3,fls:0},{name:'Chase Kieler',pts:18,m2:5,m3:2,mft:2,x2:5,x3:5,xft:0,reb:4,ast:7,blk:0,stl:1,to:0,fls:0},{name:'Danny',pts:24,m2:1,m3:6,mft:4,x2:3,x3:1,xft:0,reb:3,ast:5,blk:0,stl:0,to:1,fls:0},{name:'TJ',pts:20,m2:2,m3:4,mft:4,x2:0,x3:5,xft:1,reb:6,ast:0,blk:2,stl:0,to:0,fls:0},{name:'Wedel',pts:5,m2:1,m3:1,mft:0,x2:3,x3:5,xft:0,reb:6,ast:3,blk:1,stl:2,to:0,fls:0},{name:'Sir',pts:0,m2:0,m3:0,mft:0,x2:0,x3:1,xft:0,reb:3,ast:0,blk:0,stl:0,to:0,fls:0}]},
+   away:{name:'Cooper',score:90,players:[{name:'Armga',pts:28,m2:10,m3:1,mft:5,x2:2,x3:3,xft:0,reb:9,ast:6,blk:0,stl:1,to:0,fls:0},{name:'Macon',pts:11,m2:2,m3:2,mft:1,x2:3,x3:3,xft:1,reb:5,ast:4,blk:0,stl:0,to:1,fls:0},{name:'Sean F',pts:15,m2:6,m3:0,mft:3,x2:2,x3:1,xft:2,reb:6,ast:3,blk:2,stl:0,to:0,fls:0},{name:'Cooper',pts:18,m2:0,m3:6,mft:0,x2:1,x3:7,xft:0,reb:3,ast:2,blk:1,stl:0,to:1,fls:0},{name:'Donny',pts:12,m2:0,m3:4,mft:0,x2:1,x3:1,xft:0,reb:5,ast:2,blk:0,stl:1,to:0,fls:0},{name:'Ricky',pts:6,m2:0,m3:2,mft:0,x2:0,x3:2,xft:0,reb:0,ast:0,blk:0,stl:0,to:0,fls:0}]}
+  },
+  {id:'g_w3_1',week:3,date:'01-Feb',court:'Court 1 - 6:30',status:'final',
+   home:{name:'TJ',score:81,players:[{name:'Noah',pts:23,m2:4,m3:5,mft:0,x2:3,x3:6,xft:0,reb:4,ast:3,blk:0,stl:1,to:3,fls:0},{name:'Chase Kieler',pts:31,m2:11,m3:2,mft:3,x2:5,x3:2,xft:1,reb:12,ast:2,blk:2,stl:1,to:1,fls:0},{name:'Danny',pts:9,m2:3,m3:1,mft:0,x2:1,x3:6,xft:0,reb:5,ast:5,blk:0,stl:3,to:3,fls:0},{name:'TJ',pts:7,m2:2,m3:1,mft:0,x2:2,x3:4,xft:1,reb:7,ast:1,blk:1,stl:0,to:1,fls:0},{name:'Wedel',pts:11,m2:5,m3:0,mft:1,x2:2,x3:1,xft:0,reb:12,ast:3,blk:0,stl:2,to:4,fls:0},{name:'Rocky/Mike',pts:0,m2:0,m3:0,mft:0,x2:2,x3:0,xft:0,reb:1,ast:0,blk:0,stl:0,to:0,fls:0}]},
+   away:{name:'Derek',score:68,players:[{name:'Torin',pts:21,m2:6,m3:2,mft:3,x2:3,x3:11,xft:2,reb:6,ast:3,blk:0,stl:4,to:1,fls:0},{name:'Ziemer',pts:16,m2:3,m3:2,mft:4,x2:3,x3:12,xft:0,reb:7,ast:2,blk:0,stl:1,to:1,fls:0},{name:'Lewis',pts:13,m2:3,m3:2,mft:1,x2:1,x3:10,xft:1,reb:3,ast:3,blk:0,stl:3,to:2,fls:0},{name:'Derek',pts:2,m2:1,m3:0,mft:0,x2:2,x3:1,xft:0,reb:4,ast:1,blk:0,stl:1,to:0,fls:0},{name:'Carson',pts:6,m2:3,m3:0,mft:0,x2:2,x3:3,xft:1,reb:2,ast:1,blk:0,stl:2,to:1,fls:0},{name:'Jamie',pts:10,m2:3,m3:1,mft:1,x2:0,x3:0,xft:1,reb:4,ast:1,blk:1,stl:0,to:0,fls:0}]}
+  },
+  {id:'g_w3_2',week:3,date:'01-Feb',court:'Court 3 - 6:30',status:'final',
+   home:{name:'Cooper',score:88,players:[{name:'Armga',pts:43,m2:17,m3:2,mft:3,x2:5,x3:1,xft:0,reb:9,ast:2,blk:1,stl:1,to:0,fls:0},{name:'Macon',pts:6,m2:3,m3:0,mft:0,x2:2,x3:2,xft:0,reb:9,ast:6,blk:0,stl:2,to:4,fls:0},{name:'Sean F',pts:23,m2:8,m3:1,mft:4,x2:5,x3:2,xft:2,reb:6,ast:3,blk:1,stl:0,to:1,fls:0},{name:'Cooper',pts:6,m2:0,m3:2,mft:0,x2:1,x3:6,xft:0,reb:5,ast:2,blk:0,stl:0,to:0,fls:0},{name:'Donny',pts:8,m2:0,m3:2,mft:2,x2:0,x3:2,xft:1,reb:4,ast:3,blk:0,stl:0,to:1,fls:0},{name:'Ricky',pts:2,m2:1,m3:0,mft:0,x2:0,x3:2,xft:0,reb:2,ast:0,blk:0,stl:0,to:0,fls:0}]},
+   away:{name:'Zack',score:65,players:[{name:'Sam Wilk',pts:14,m2:5,m3:1,mft:1,x2:5,x3:3,xft:1,reb:1,ast:1,blk:1,stl:0,to:0,fls:0},{name:'Shravan',pts:29,m2:4,m3:5,mft:6,x2:6,x3:4,xft:1,reb:5,ast:3,blk:0,stl:1,to:2,fls:0},{name:'Justin',pts:5,m2:1,m3:1,mft:0,x2:0,x3:10,xft:0,reb:5,ast:0,blk:1,stl:3,to:1,fls:0},{name:'Zack',pts:11,m2:5,m3:0,mft:1,x2:4,x3:5,xft:0,reb:2,ast:1,blk:0,stl:0,to:1,fls:0},{name:'Willie',pts:6,m2:1,m3:1,mft:1,x2:2,x3:2,xft:3,reb:11,ast:8,blk:1,stl:2,to:0,fls:0},{name:'Tall Matt',pts:0,m2:0,m3:0,mft:0,x2:0,x3:0,xft:0,reb:3,ast:0,blk:0,stl:0,to:0,fls:0}]}
+  },
+  {id:'g_w3_3',week:3,date:'01-Feb',court:'Court 1 - 7:30',status:'final',
+   home:{name:'Olson',score:69,players:[{name:'Chandler',pts:9,m2:3,m3:0,mft:3,x2:7,x3:1,xft:1,reb:11,ast:7,blk:1,stl:1,to:1,fls:0},{name:'Trev Neale',pts:12,m2:4,m3:1,mft:1,x2:6,x3:1,xft:1,reb:6,ast:0,blk:0,stl:0,to:2,fls:0},{name:'Hertz',pts:9,m2:4,m3:0,mft:1,x2:3,x3:7,xft:1,reb:6,ast:2,blk:1,stl:2,to:1,fls:0},{name:'Andy Fox',pts:18,m2:5,m3:2,mft:2,x2:4,x3:6,xft:0,reb:3,ast:0,blk:0,stl:1,to:2,fls:0},{name:'Jesse Temple',pts:14,m2:1,m3:4,mft:0,x2:3,x3:2,xft:0,reb:0,ast:1,blk:0,stl:1,to:0,fls:0},{name:'Mike F',pts:7,m2:2,m3:1,mft:0,x2:4,x3:1,xft:0,reb:4,ast:0,blk:0,stl:0,to:2,fls:0}]},
+   away:{name:'Alex',score:97,players:[{name:'Nate Rohrer',pts:19,m2:8,m3:1,mft:0,x2:5,x3:2,xft:0,reb:17,ast:3,blk:2,stl:0,to:1,fls:0},{name:'Ty Parman',pts:20,m2:6,m3:2,mft:2,x2:9,x3:6,xft:1,reb:5,ast:1,blk:0,stl:4,to:0,fls:0},{name:'Watts',pts:23,m2:10,m3:1,mft:0,x2:0,x3:1,xft:0,reb:6,ast:9,blk:2,stl:0,to:2,fls:0},{name:'Alex',pts:12,m2:4,m3:1,mft:1,x2:3,x3:1,xft:0,reb:5,ast:1,blk:0,stl:0,to:1,fls:0},{name:'Boone',pts:15,m2:4,m3:2,mft:1,x2:1,x3:3,xft:1,reb:7,ast:4,blk:0,stl:2,to:3,fls:0},{name:'Roy',pts:8,m2:1,m3:2,mft:0,x2:1,x3:4,xft:0,reb:2,ast:1,blk:0,stl:0,to:0,fls:0}]}
+  },
+  {id:'g_w3_4',week:3,date:'01-Feb',court:'Court 3 - 7:30',status:'final',
+   home:{name:'Timmy',score:69,players:[{name:'Minnerly',pts:19,m2:5,m3:3,mft:0,x2:7,x3:2,xft:0,reb:11,ast:3,blk:0,stl:0,to:2,fls:0},{name:'Mike Brand',pts:22,m2:5,m3:4,mft:0,x2:3,x3:5,xft:1,reb:4,ast:6,blk:0,stl:4,to:1,fls:0},{name:'Marty',pts:9,m2:1,m3:2,mft:1,x2:5,x3:8,xft:1,reb:4,ast:3,blk:2,stl:3,to:2,fls:0},{name:'Gibbs',pts:8,m2:1,m3:2,mft:0,x2:1,x3:4,xft:0,reb:4,ast:0,blk:0,stl:0,to:1,fls:0},{name:'Ty S',pts:8,m2:4,m3:0,mft:0,x2:6,x3:1,xft:0,reb:10,ast:0,blk:1,stl:1,to:0,fls:0},{name:'Plotkin',pts:3,m2:0,m3:1,mft:0,x2:0,x3:6,xft:0,reb:1,ast:0,blk:0,stl:1,to:0,fls:0}]},
+   away:{name:'Akim',score:81,players:[{name:'Reetz',pts:31,m2:9,m3:3,mft:4,x2:3,x3:2,xft:1,reb:5,ast:3,blk:1,stl:0,to:2,fls:0},{name:'Jake B',pts:9,m2:0,m3:2,mft:3,x2:1,x3:4,xft:0,reb:8,ast:2,blk:0,stl:1,to:4,fls:0},{name:'Nate Ray',pts:21,m2:6,m3:3,mft:0,x2:2,x3:3,xft:0,reb:8,ast:4,blk:0,stl:3,to:1,fls:0},{name:'Akim',pts:14,m2:2,m3:3,mft:1,x2:2,x3:6,xft:1,reb:8,ast:3,blk:0,stl:0,to:5,fls:0},{name:'Kahl',pts:6,m2:0,m3:2,mft:0,x2:2,x3:1,xft:0,reb:11,ast:3,blk:1,stl:0,to:1,fls:0},{name:'Donny(sub)',pts:0,m2:0,m3:0,mft:0,x2:0,x3:0,xft:0,reb:1,ast:0,blk:1,stl:0,to:1,fls:0}]}
+  },
+  {id:'g_w4_1',week:4,date:'15-Feb',court:'Court 1 - 6:30',status:'final',
+   home:{name:'Alex',score:111,players:[{name:'Nate Rohrer',pts:23,m2:8,m3:2,mft:1,x2:6,x3:3,xft:1,reb:18,ast:7,blk:1,stl:1,to:3,fls:0},{name:'Ty Parman',pts:27,m2:4,m3:6,mft:1,x2:1,x3:3,xft:1,reb:2,ast:3,blk:0,stl:5,to:0,fls:0},{name:'Watts',pts:19,m2:7,m3:1,mft:2,x2:6,x3:3,xft:0,reb:7,ast:6,blk:1,stl:0,to:2,fls:0},{name:'Alex',pts:10,m2:4,m3:0,mft:2,x2:3,x3:1,xft:0,reb:4,ast:1,blk:0,stl:1,to:0,fls:0},{name:'Boone',pts:18,m2:5,m3:2,mft:2,x2:6,x3:3,xft:0,reb:7,ast:2,blk:0,stl:2,to:1,fls:0},{name:'Roy',pts:14,m2:1,m3:4,mft:0,x2:1,x3:1,xft:0,reb:1,ast:1,blk:0,stl:0,to:0,fls:0}]},
+   away:{name:'Derek',score:85,players:[{name:'Jake S',pts:31,m2:13,m3:1,mft:2,x2:9,x3:2,xft:0,reb:9,ast:0,blk:1,stl:1,to:3,fls:0},{name:'Ziemer',pts:8,m2:0,m3:2,mft:2,x2:4,x3:5,xft:0,reb:8,ast:8,blk:0,stl:1,to:4,fls:0},{name:'Lewis',pts:24,m2:7,m3:3,mft:1,x2:8,x3:4,xft:1,reb:2,ast:8,blk:1,stl:1,to:3,fls:0},{name:'Derek',pts:11,m2:1,m3:3,mft:0,x2:1,x3:5,xft:0,reb:3,ast:3,blk:0,stl:0,to:1,fls:0},{name:'Carson',pts:5,m2:1,m3:1,mft:0,x2:1,x3:2,xft:0,reb:3,ast:0,blk:0,stl:1,to:0,fls:0},{name:'Jamie',pts:6,m2:3,m3:0,mft:0,x2:1,x3:1,xft:0,reb:5,ast:1,blk:0,stl:0,to:1,fls:0}]}
+  },
+  {id:'g_w4_2',week:4,date:'15-Feb',court:'Court 3 - 6:30',status:'final',
+   home:{name:'Olson',score:60,players:[{name:'Chandler',pts:25,m2:10,m3:1,mft:2,x2:3,x3:2,xft:4,reb:11,ast:6,blk:0,stl:0,to:5,fls:0},{name:'Trev Neale',pts:10,m2:5,m3:0,mft:0,x2:4,x3:3,xft:1,reb:8,ast:0,blk:1,stl:0,to:2,fls:0},{name:'Hertz',pts:12,m2:3,m3:1,mft:3,x2:4,x3:6,xft:1,reb:3,ast:2,blk:0,stl:4,to:1,fls:0},{name:'Tyler Olson',pts:3,m2:0,m3:1,mft:0,x2:1,x3:4,xft:0,reb:6,ast:4,blk:0,stl:1,to:1,fls:0},{name:'Jesse Temple',pts:10,m2:2,m3:2,mft:0,x2:1,x3:3,xft:0,reb:1,ast:0,blk:0,stl:0,to:0,fls:0},{name:'Younggren',pts:0,m2:0,m3:0,mft:0,x2:1,x3:0,xft:0,reb:0,ast:0,blk:0,stl:0,to:0,fls:0}]},
+   away:{name:'TJ',score:81,players:[{name:'Noah',pts:34,m2:5,m3:8,mft:0,x2:3,x3:12,xft:0,reb:6,ast:3,blk:0,stl:0,to:4,fls:0},{name:'Chase Kieler',pts:16,m2:2,m3:4,mft:0,x2:6,x3:4,xft:2,reb:10,ast:8,blk:0,stl:3,to:2,fls:0},{name:'Sam BZ',pts:0,m2:0,m3:0,mft:0,x2:0,x3:1,xft:0,reb:5,ast:1,blk:0,stl:1,to:0,fls:0},{name:'TJ',pts:15,m2:0,m3:5,mft:0,x2:1,x3:1,xft:0,reb:6,ast:1,blk:1,stl:0,to:0,fls:0},{name:'Wedel',pts:14,m2:4,m3:2,mft:0,x2:3,x3:6,xft:0,reb:6,ast:1,blk:2,stl:1,to:1,fls:0},{name:'Sir',pts:2,m2:1,m3:0,mft:0,x2:2,x3:4,xft:0,reb:8,ast:1,blk:1,stl:0,to:0,fls:0}]}
+  },
+  {id:'g_w4_3',week:4,date:'15-Feb',court:'Court 1 - 7:30',status:'final',
+   home:{name:'Timmy',score:74,players:[{name:'Minnerly',pts:4,m2:1,m3:0,mft:2,x2:0,x3:2,xft:0,reb:6,ast:0,blk:0,stl:3,to:0,fls:0},{name:'Mike Brand',pts:18,m2:3,m3:3,mft:3,x2:4,x3:8,xft:1,reb:3,ast:5,blk:0,stl:1,to:0,fls:0},{name:'Gibbs',pts:8,m2:1,m3:2,mft:0,x2:0,x3:5,xft:0,reb:3,ast:2,blk:0,stl:1,to:1,fls:0},{name:'Timmy',pts:17,m2:7,m3:0,mft:3,x2:8,x3:7,xft:1,reb:2,ast:3,blk:1,stl:1,to:0,fls:0},{name:'Ty S',pts:25,m2:5,m3:4,mft:3,x2:6,x3:2,xft:1,reb:3,ast:2,blk:0,stl:1,to:0,fls:0},{name:'Plotkin',pts:2,m2:1,m3:0,mft:0,x2:1,x3:0,xft:0,reb:1,ast:0,blk:0,stl:1,to:0,fls:0}]},
+   away:{name:'Cooper',score:85,players:[{name:'Armga',pts:29,m2:8,m3:2,mft:7,x2:6,x3:0,xft:1,reb:8,ast:3,blk:0,stl:0,to:5,fls:0},{name:'Dreher',pts:16,m2:8,m3:0,mft:0,x2:0,x3:0,xft:0,reb:3,ast:2,blk:1,stl:2,to:2,fls:0},{name:'Sean F',pts:19,m2:6,m3:1,mft:4,x2:4,x3:3,xft:2,reb:10,ast:1,blk:1,stl:0,to:3,fls:0},{name:'Cooper',pts:15,m2:3,m3:3,mft:0,x2:1,x3:3,xft:0,reb:4,ast:4,blk:0,stl:0,to:1,fls:0},{name:'Donny',pts:3,m2:0,m3:0,mft:3,x2:0,x3:1,xft:1,reb:5,ast:1,blk:0,stl:0,to:1,fls:0},{name:'Ricky',pts:3,m2:0,m3:1,mft:0,x2:0,x3:0,xft:0,reb:0,ast:0,blk:0,stl:0,to:0,fls:0}]}
+  },
+  {id:'g_w4_4',week:4,date:'15-Feb',court:'Court 3 - 7:30',status:'final',
+   home:{name:'Akim',score:95,players:[{name:'Reetz',pts:44,m2:14,m3:4,mft:4,x2:4,x3:4,xft:1,reb:5,ast:5,blk:0,stl:0,to:1,fls:0},{name:'Jake B',pts:9,m2:0,m3:3,mft:0,x2:0,x3:9,xft:0,reb:4,ast:4,blk:0,stl:0,to:1,fls:0},{name:'Nate Ray',pts:9,m2:4,m3:0,mft:1,x2:1,x3:6,xft:1,reb:8,ast:3,blk:1,stl:2,to:2,fls:0},{name:'Kain',pts:16,m2:5,m3:2,mft:0,x2:1,x3:2,xft:0,reb:4,ast:2,blk:0,stl:1,to:2,fls:0},{name:'Kahl',pts:6,m2:0,m3:2,mft:0,x2:1,x3:1,xft:0,reb:9,ast:6,blk:0,stl:0,to:1,fls:0},{name:'Scotty',pts:11,m2:1,m3:3,mft:0,x2:1,x3:5,xft:0,reb:2,ast:1,blk:0,stl:0,to:0,fls:0}]},
+   away:{name:'Zack',score:98,players:[{name:'Sam Wilk',pts:23,m2:11,m3:0,mft:1,x2:6,x3:1,xft:1,reb:11,ast:2,blk:0,stl:1,to:0,fls:0},{name:'Shravan',pts:32,m2:12,m3:1,mft:5,x2:3,x3:8,xft:3,reb:5,ast:10,blk:0,stl:0,to:1,fls:0},{name:'Justin',pts:17,m2:1,m3:5,mft:0,x2:1,x3:4,xft:0,reb:8,ast:1,blk:0,stl:3,to:1,fls:0},{name:'Zack',pts:14,m2:6,m3:0,mft:2,x2:2,x3:1,xft:0,reb:4,ast:0,blk:0,stl:1,to:2,fls:0},{name:'Mike F',pts:12,m2:3,m3:2,mft:0,x2:3,x3:2,xft:0,reb:2,ast:0,blk:0,stl:0,to:2,fls:0}]}
+  },
+  {id:'g_w5_1',week:5,date:'22-Feb',court:'Court 1 - 6:30',status:'final',
+   home:{name:'Cooper',score:74,players:[{name:'Armga',pts:27,m2:11,m3:1,mft:2,x2:6,x3:4,xft:2,reb:10,ast:1,blk:0,stl:1,to:3,fls:0},{name:'Macon',pts:9,m2:3,m3:1,mft:0,x2:6,x3:2,xft:0,reb:8,ast:4,blk:0,stl:0,to:1,fls:0},{name:'Sean F',pts:8,m2:2,m3:1,mft:1,x2:9,x3:5,xft:1,reb:7,ast:2,blk:1,stl:3,to:1,fls:0},{name:'Cooper',pts:17,m2:1,m3:5,mft:0,x2:1,x3:4,xft:0,reb:7,ast:4,blk:0,stl:0,to:1,fls:0},{name:'Donny',pts:10,m2:2,m3:2,mft:0,x2:0,x3:3,xft:0,reb:5,ast:3,blk:0,stl:1,to:0,fls:0},{name:'Ricky',pts:3,m2:0,m3:1,mft:0,x2:1,x3:2,xft:0,reb:1,ast:0,blk:0,stl:0,to:0,fls:0}]},
+   away:{name:'Akim',score:86,players:[{name:'Valentyn',pts:4,m2:0,m3:0,mft:4,x2:2,x3:6,xft:2,reb:3,ast:7,blk:1,stl:1,to:0,fls:0},{name:'Siebert',pts:25,m2:3,m3:6,mft:1,x2:1,x3:5,xft:0,reb:4,ast:0,blk:0,stl:0,to:2,fls:0},{name:'Nate Ray',pts:9,m2:3,m3:1,mft:0,x2:3,x3:3,xft:0,reb:6,ast:4,blk:0,stl:4,to:1,fls:0},{name:'Akim',pts:11,m2:4,m3:1,mft:0,x2:0,x3:4,xft:2,reb:4,ast:1,blk:0,stl:1,to:1,fls:0},{name:'Kahl',pts:15,m2:0,m3:5,mft:0,x2:1,x3:1,xft:0,reb:11,ast:6,blk:0,stl:0,to:2,fls:0},{name:'Scotty',pts:22,m2:5,m3:4,mft:0,x2:2,x3:4,xft:0,reb:4,ast:4,blk:0,stl:0,to:0,fls:0}]}
+  },
+  {id:'g_w5_2',week:5,date:'22-Feb',court:'Court 3 - 6:30',status:'final',
+   home:{name:'Derek',score:99,players:[{name:'Jake S',pts:28,m2:12,m3:0,mft:4,x2:9,x3:2,xft:2,reb:15,ast:0,blk:5,stl:1,to:0,fls:0},{name:'Ziemer',pts:15,m2:1,m3:4,mft:1,x2:4,x3:3,xft:1,reb:6,ast:4,blk:0,stl:2,to:2,fls:0},{name:'Lewis',pts:37,m2:6,m3:8,mft:1,x2:2,x3:4,xft:2,reb:7,ast:8,blk:0,stl:0,to:4,fls:0},{name:'Derek',pts:11,m2:3,m3:1,mft:2,x2:3,x3:0,xft:0,reb:3,ast:2,blk:0,stl:2,to:1,fls:0},{name:'Kain',pts:8,m2:4,m3:0,mft:0,x2:0,x3:1,xft:0,reb:3,ast:1,blk:0,stl:0,to:0,fls:0},{name:'Jamie',pts:0,m2:0,m3:0,mft:0,x2:2,x3:0,xft:0,reb:5,ast:0,blk:0,stl:1,to:1,fls:0}]},
+   away:{name:'Timmy',score:79,players:[{name:'Minnerly',pts:22,m2:5,m3:3,mft:3,x2:14,x3:5,xft:2,reb:11,ast:6,blk:1,stl:5,to:2,fls:0},{name:'Mike Brand',pts:23,m2:5,m3:4,mft:1,x2:2,x3:6,xft:2,reb:4,ast:4,blk:0,stl:1,to:1,fls:0},{name:'Marty',pts:7,m2:1,m3:1,mft:2,x2:2,x3:5,xft:0,reb:6,ast:2,blk:1,stl:1,to:0,fls:0},{name:'Timmy',pts:15,m2:3,m3:3,mft:0,x2:6,x3:5,xft:0,reb:3,ast:0,blk:1,stl:1,to:0,fls:0},{name:'Hobert',pts:3,m2:0,m3:1,mft:0,x2:1,x3:0,xft:0,reb:6,ast:0,blk:0,stl:1,to:1,fls:0},{name:'Plotkin',pts:9,m2:0,m3:3,mft:0,x2:0,x3:4,xft:0,reb:0,ast:0,blk:0,stl:1,to:0,fls:0}]}
+  },
+  {id:'g_w5_3',week:5,date:'22-Feb',court:'Court 1 - 7:30',status:'final',
+   home:{name:'Zack',score:64,players:[{name:'Sam Wilk',pts:28,m2:11,m3:2,mft:0,x2:6,x3:3,xft:0,reb:5,ast:2,blk:0,stl:1,to:1,fls:0},{name:'Shravan',pts:17,m2:4,m3:3,mft:0,x2:9,x3:8,xft:0,reb:6,ast:1,blk:0,stl:1,to:4,fls:0},{name:'Justin',pts:5,m2:1,m3:1,mft:0,x2:1,x3:6,xft:2,reb:7,ast:0,blk:0,stl:3,to:0,fls:0},{name:'Gibbs',pts:9,m2:3,m3:1,mft:0,x2:3,x3:3,xft:0,reb:8,ast:2,blk:1,stl:0,to:0,fls:0},{name:'Willie',pts:2,m2:1,m3:0,mft:0,x2:1,x3:0,xft:0,reb:10,ast:3,blk:1,stl:2,to:1,fls:0},{name:'Tall Matt',pts:3,m2:0,m3:1,mft:0,x2:0,x3:0,xft:0,reb:0,ast:0,blk:0,stl:0,to:0,fls:0}]},
+   away:{name:'Olson',score:74,players:[{name:'Chandler',pts:17,m2:7,m3:1,mft:0,x2:7,x3:3,xft:2,reb:10,ast:7,blk:1,stl:0,to:0,fls:0},{name:'Trev Neale',pts:14,m2:5,m3:1,mft:1,x2:1,x3:1,xft:2,reb:6,ast:2,blk:0,stl:0,to:1,fls:0},{name:'Hertz',pts:18,m2:6,m3:1,mft:3,x2:4,x3:5,xft:0,reb:10,ast:3,blk:0,stl:2,to:4,fls:0},{name:'Lefty Andy',pts:8,m2:1,m3:2,mft:0,x2:1,x3:3,xft:0,reb:4,ast:1,blk:0,stl:1,to:1,fls:0},{name:'Jesse Temple',pts:17,m2:3,m3:3,mft:2,x2:4,x3:7,xft:0,reb:6,ast:0,blk:0,stl:0,to:2,fls:0},{name:'Younggren',pts:0,m2:0,m3:0,mft:0,x2:0,x3:1,xft:0,reb:2,ast:2,blk:0,stl:1,to:0,fls:0}]}
+  },
+  {id:'g_w5_4',week:5,date:'22-Feb',court:'Court 3 - 7:30',status:'final',
+   home:{name:'TJ',score:64,players:[{name:'Noah',pts:9,m2:2,m3:1,mft:2,x2:2,x3:10,xft:1,reb:4,ast:4,blk:0,stl:2,to:3,fls:0},{name:'Chase Kieler',pts:24,m2:6,m3:3,mft:3,x2:3,x3:2,xft:3,reb:4,ast:4,blk:0,stl:1,to:2,fls:0},{name:'Sam BZ',pts:6,m2:0,m3:2,mft:0,x2:0,x3:3,xft:0,reb:5,ast:1,blk:0,stl:2,to:1,fls:0},{name:'TJ',pts:14,m2:1,m3:4,mft:0,x2:0,x3:8,xft:0,reb:4,ast:0,blk:1,stl:0,to:2,fls:0},{name:'Wedel',pts:8,m2:4,m3:0,mft:0,x2:0,x3:2,xft:0,reb:5,ast:2,blk:1,stl:1,to:1,fls:0},{name:'Sir',pts:3,m2:0,m3:1,mft:0,x2:0,x3:2,xft:0,reb:3,ast:1,blk:0,stl:0,to:1,fls:0}]},
+   away:{name:'Alex',score:68,players:[{name:'Nate Rohrer',pts:19,m2:6,m3:1,mft:4,x2:2,x3:2,xft:0,reb:13,ast:2,blk:0,stl:0,to:3,fls:0},{name:'Ty Parman',pts:28,m2:9,m3:2,mft:4,x2:2,x3:2,xft:2,reb:3,ast:1,blk:0,stl:3,to:2,fls:0},{name:'Watts',pts:9,m2:2,m3:0,mft:5,x2:1,x3:1,xft:3,reb:3,ast:1,blk:1,stl:1,to:1,fls:0},{name:'Alex',pts:4,m2:2,m3:0,mft:0,x2:8,x3:0,xft:0,reb:2,ast:3,blk:0,stl:1,to:0,fls:0},{name:'Boone',pts:8,m2:4,m3:0,mft:0,x2:1,x3:4,xft:0,reb:4,ast:2,blk:0,stl:1,to:2,fls:0}]}
+  },
+  {id:'g_w6_1',week:6,date:'01-Mar',court:'Court 1 - 6:30',status:'final',
+   home:{name:'Alex',score:82,players:[{name:'Rohrer',pts:19,m2:6,m3:2,mft:1,x2:7,x3:1,xft:1,reb:9,ast:3,blk:1,stl:2,to:1,fls:2,isSub:false},
+        {name:'Parman',pts:14,m2:7,m3:0,mft:0,x2:5,x3:4,xft:0,reb:5,ast:2,blk:0,stl:1,to:1,fls:0,isSub:false},
+        {name:'Watts',pts:20,m2:9,m3:0,mft:2,x2:2,x3:1,xft:0,reb:5,ast:3,blk:0,stl:1,to:0,fls:1,isSub:false},
+        {name:'Alex',pts:8,m2:3,m3:0,mft:2,x2:4,x3:0,xft:0,reb:0,ast:3,blk:1,stl:1,to:0,fls:2,isSub:false},
+        {name:'Boone',pts:20,m2:3,m3:4,mft:2,x2:2,x3:3,xft:1,reb:0,ast:0,blk:0,stl:0,to:0,fls:1,isSub:false},
+        {name:'Roy',pts:0,m2:0,m3:0,mft:0,x2:1,x3:2,xft:0,reb:0,ast:0,blk:0,stl:0,to:0,fls:0,isSub:false}]},
+   away:{name:'Zack',score:75,players:[{name:'Sam Wilk',pts:36,m2:4,m3:9,mft:1,x2:8,x3:6,xft:1,reb:3,ast:2,blk:0,stl:2,to:0,fls:3,isSub:false},
+        {name:'Shravan',pts:18,m2:3,m3:4,mft:0,x2:0,x3:8,xft:0,reb:4,ast:4,blk:0,stl:1,to:0,fls:3,isSub:false},
+        {name:'Justin',pts:9,m2:0,m3:3,mft:0,x2:0,x3:4,xft:0,reb:3,ast:0,blk:0,stl:0,to:0,fls:3,isSub:false},
+        {name:'Zack',pts:9,m2:2,m3:1,mft:2,x2:4,x3:1,xft:0,reb:3,ast:5,blk:0,stl:0,to:0,fls:1,isSub:false},
+        {name:'Willie',pts:9,m2:4,m3:0,mft:1,x2:3,x3:1,xft:0,reb:4,ast:1,blk:0,stl:1,to:0,fls:2,isSub:false},
+        {name:'Tall Matt',pts:5,m2:1,m3:1,mft:0,x2:2,x3:0,xft:0,reb:0,ast:0,blk:0,stl:0,to:0,fls:0,isSub:false}]}
+  },
+  {id:'g_w6_2',week:6,date:'01-Mar',court:'Court 3 - 6:30',status:'final',
+   home:{name:'Olson',score:68,players:[{name:'Chandler',pts:6,m2:2,m3:0,mft:2,x2:5,x3:1,xft:0,reb:9,ast:5,blk:1,stl:0,to:1,fls:2,isSub:false},
+        {name:'Trev Neale',pts:12,m2:3,m3:1,mft:3,x2:5,x3:3,xft:1,reb:3,ast:1,blk:0,stl:0,to:0,fls:1,isSub:false},
+        {name:'Hertz',pts:21,m2:3,m3:5,mft:0,x2:1,x3:4,xft:0,reb:9,ast:1,blk:1,stl:0,to:0,fls:4,isSub:false},
+        {name:'Olson',pts:14,m2:2,m3:3,mft:1,x2:2,x3:6,xft:2,reb:2,ast:3,blk:0,stl:0,to:0,fls:1,isSub:false},
+        {name:'Jesse',pts:6,m2:3,m3:0,mft:0,x2:3,x3:0,xft:0,reb:0,ast:0,blk:0,stl:0,to:4,fls:1,isSub:false},
+        {name:'Younggren',pts:8,m2:1,m3:2,mft:0,x2:0,x3:1,xft:0,reb:0,ast:0,blk:0,stl:0,to:0,fls:0,isSub:false}]},
+   away:{name:'Cooper',score:82,players:[{name:'Armga',pts:34,m2:11,m3:2,mft:6,x2:2,x3:2,xft:1,reb:5,ast:2,blk:1,stl:1,to:0,fls:2,isSub:false},
+        {name:'Macon',pts:9,m2:2,m3:1,mft:2,x2:8,x3:0,xft:1,reb:4,ast:0,blk:0,stl:2,to:3,fls:3,isSub:false},
+        {name:'Sean F',pts:21,m2:7,m3:2,mft:1,x2:3,x3:6,xft:0,reb:9,ast:1,blk:1,stl:1,to:3,fls:2,isSub:false},
+        {name:'Cooper',pts:15,m2:3,m3:3,mft:0,x2:1,x3:3,xft:0,reb:3,ast:6,blk:0,stl:1,to:0,fls:1,isSub:false},
+        {name:'Donny',pts:5,m2:0,m3:1,mft:2,x2:0,x3:2,xft:0,reb:5,ast:1,blk:0,stl:0,to:0,fls:2,isSub:false},
+        {name:'Ricky',pts:0,m2:0,m3:0,mft:0,x2:1,x3:0,xft:0,reb:0,ast:0,blk:0,stl:0,to:0,fls:0,isSub:false}]}
+  },
+  {id:'g_w6_3',week:6,date:'01-Mar',court:'Court 1 - 7:30',status:'final',
+   home:{name:'Timmy',score:77,players:[{name:'Minnerly',pts:22,m2:6,m3:3,mft:1,x2:5,x3:6,xft:1,reb:3,ast:4,blk:2,stl:0,to:0,fls:1,isSub:false},
+        {name:'Weston Palman',pts:20,m2:5,m3:2,mft:4,x2:3,x3:4,xft:0,reb:1,ast:1,blk:0,stl:0,to:0,fls:1,isSub:false},
+        {name:'Gibbs',pts:0,m2:0,m3:0,mft:0,x2:1,x3:5,xft:0,reb:1,ast:4,blk:1,stl:1,to:0,fls:0,isSub:false},
+        {name:'Timmy',pts:22,m2:5,m3:4,mft:0,x2:5,x3:4,xft:0,reb:9,ast:1,blk:0,stl:2,to:0,fls:3,isSub:false},
+        {name:'Ty S',pts:7,m2:2,m3:1,mft:0,x2:4,x3:2,xft:0,reb:3,ast:0,blk:0,stl:1,to:0,fls:1,isSub:false},
+        {name:'Mike F',pts:2,m2:1,m3:0,mft:0,x2:1,x3:1,xft:0,reb:0,ast:0,blk:0,stl:0,to:0,fls:0,isSub:false}]},
+   away:{name:'TJ',score:99,players:[{name:'Noah',pts:38,m2:7,m3:5,mft:9,x2:6,x3:10,xft:1,reb:9,ast:5,blk:0,stl:0,to:3,fls:2,isSub:false},
+        {name:'Chase',pts:21,m2:6,m3:3,mft:0,x2:1,x3:3,xft:0,reb:4,ast:2,blk:1,stl:1,to:0,fls:1,isSub:false},
+        {name:'Danny',pts:15,m2:3,m3:3,mft:0,x2:1,x3:5,xft:0,reb:6,ast:1,blk:1,stl:0,to:0,fls:1,isSub:false},
+        {name:'TJ',pts:18,m2:1,m3:5,mft:1,x2:0,x3:4,xft:1,reb:4,ast:2,blk:0,stl:0,to:0,fls:2,isSub:false},
+        {name:'Wedel',pts:8,m2:4,m3:0,mft:0,x2:1,x3:0,xft:0,reb:3,ast:1,blk:0,stl:0,to:4,fls:1,isSub:false},
+        {name:'Rocky',pts:9,m2:0,m3:3,mft:0,x2:0,x3:5,xft:0,reb:0,ast:0,blk:0,stl:0,to:0,fls:0,isSub:false}]}
+  },
+  {id:'g_w6_4',week:6,date:'01-Mar',court:'Court 3 - 7:30',status:'final',
+   home:{name:'Akim',score:75,players:[{name:'Reetz',pts:50,m2:7,m3:12,mft:0,x2:3,x3:12,xft:0,reb:5,ast:0,blk:0,stl:2,to:0,fls:2,isSub:false},
+        {name:'Siebert',pts:13,m2:5,m3:1,mft:0,x2:3,x3:4,xft:0,reb:4,ast:4,blk:0,stl:4,to:0,fls:2,isSub:false},
+        {name:'Nate Ray',pts:6,m2:3,m3:0,mft:0,x2:1,x3:4,xft:0,reb:6,ast:5,blk:0,stl:0,to:0,fls:2,isSub:false},
+        {name:'Akim',pts:6,m2:3,m3:0,mft:0,x2:1,x3:4,xft:0,reb:3,ast:4,blk:0,stl:0,to:0,fls:0,isSub:false},
+        {name:'Kahl',pts:5,m2:1,m3:1,mft:0,x2:0,x3:1,xft:0,reb:2,ast:0,blk:0,stl:0,to:0,fls:0,isSub:false},
+        {name:'Scotty',pts:9,m2:0,m3:3,mft:0,x2:2,x3:3,xft:0,reb:0,ast:0,blk:0,stl:0,to:0,fls:0,isSub:false}]},
+   away:{name:'Derek',score:74,players:[{name:'Jake S',pts:29,m2:13,m3:1,mft:0,x2:11,x3:2,xft:0,reb:9,ast:3,blk:0,stl:2,to:0,fls:2,isSub:false},
+        {name:'Ziemer',pts:13,m2:2,m3:3,mft:0,x2:2,x3:3,xft:0,reb:5,ast:5,blk:0,stl:1,to:3,fls:2,isSub:false},
+        {name:'Lewis',pts:19,m2:4,m3:3,mft:2,x2:3,x3:6,xft:0,reb:2,ast:3,blk:0,stl:0,to:2,fls:2,isSub:false},
+        {name:'Derek',pts:4,m2:2,m3:0,mft:0,x2:1,x3:2,xft:0,reb:3,ast:0,blk:0,stl:0,to:0,fls:2,isSub:false},
+        {name:'Kain',pts:4,m2:2,m3:0,mft:0,x2:0,x3:2,xft:0,reb:0,ast:0,blk:0,stl:0,to:0,fls:0,isSub:false},
+        {name:'Jaime',pts:0,m2:0,m3:0,mft:0,x2:0,x3:2,xft:0,reb:0,ast:0,blk:0,stl:0,to:0,fls:0,isSub:false}]}
+  },
+  {id:'g_w7_1',week:7,date:'08-Mar',court:'Court 1 - 6:30',status:'final',
+   home:{name:'Zack',score:0,players:[]},
+   away:{name:'Timmy',score:0,players:[]}
+  },
+  {id:'g_w7_2',week:7,date:'08-Mar',court:'Court 3 - 6:30',status:'final',
+   home:{name:'TJ',score:0,players:[]},
+   away:{name:'Akim',score:0,players:[]}
+  },
+  {id:'g_w7_3',week:7,date:'08-Mar',court:'Court 1 - 7:30',status:'final',
+   home:{name:'Cooper',score:0,players:[]},
+   away:{name:'Alex',score:0,players:[]}
+  },
+  {id:'g_w7_4',week:7,date:'08-Mar',court:'Court 3 - 7:30',status:'final',
+   home:{name:'Derek',score:0,players:[]},
+   away:{name:'Olson',score:0,players:[]}
+  },
+  {id:'g_w8_1',week:8,date:'15-Mar',court:'Court 1 - 6:30',status:'final',
+   home:{name:'Akim',score:0,players:[]},
+   away:{name:'Olson',score:0,players:[]}
+  },
+  {id:'g_w8_2',week:8,date:'15-Mar',court:'Court 3 - 6:30',status:'final',
+   home:{name:'Timmy',score:0,players:[]},
+   away:{name:'Alex',score:0,players:[]}
+  },
+  {id:'g_w8_3',week:8,date:'15-Mar',court:'Court 1 - 7:30',status:'final',
+   home:{name:'Cooper',score:0,players:[]},
+   away:{name:'Derek',score:0,players:[]}
+  },
+  {id:'g_w8_4',week:8,date:'15-Mar',court:'Court 3 - 7:30',status:'final',
+   home:{name:'Zack',score:0,players:[]},
+   away:{name:'TJ',score:0,players:[]}
+  },
+  {id:'g_w9_1',week:9,date:'29-Mar',court:'Court 1 - 6:30',status:'final',
+   home:{name:'Cooper',score:0,players:[]},
+   away:{name:'TJ',score:0,players:[]}
+  },
+  {id:'g_w9_2',week:9,date:'29-Mar',court:'Court 3 - 6:30',status:'final',
+   home:{name:'Zack',score:0,players:[]},
+   away:{name:'Derek',score:0,players:[]}
+  },
+  {id:'g_w9_3',week:9,date:'29-Mar',court:'Court 1 - 7:30',status:'final',
+   home:{name:'Timmy',score:0,players:[]},
+   away:{name:'Olson',score:0,players:[]}
+  },
+  {id:'g_w9_4',week:9,date:'29-Mar',court:'Court 3 - 7:30',status:'final',
+   home:{name:'Akim',score:0,players:[]},
+   away:{name:'Alex',score:0,players:[]}
+  },
+  {id:'g_w10_1',week:10,date:'12-Apr',court:'Court 1 - 6:30',status:'final',
+   home:{name:'Akim',score:0,players:[]},
+   away:{name:'Timmy',score:0,players:[]}
+  },
+  {id:'g_w10_2',week:10,date:'12-Apr',court:'Court 3 - 6:30',status:'final',
+   home:{name:'Alex',score:0,players:[]},
+   away:{name:'Olson',score:0,players:[]}
+  },
+  {id:'g_w10_3',week:10,date:'12-Apr',court:'Court 1 - 7:30',status:'final',
+   home:{name:'Derek',score:0,players:[]},
+   away:{name:'TJ',score:0,players:[]}
+  },
+  {id:'g_w10_4',week:10,date:'12-Apr',court:'Court 3 - 7:30',status:'final',
+   home:{name:'Zack',score:0,players:[]},
+   away:{name:'Cooper',score:0,players:[]}
+  }
+];
+</script>
+<script>
+// ══════════════════════════════════════════════════════
+// ROSTERS
+// ══════════════════════════════════════════════════════
+const ROSTERS = {
+  "Cooper":  ["Cooper","Armga","Macon","Sean F","Donny","Ricky"],
+  "Olson":   ["Tyler Olson","Chandler","Trev Neale","Hertz","Jesse Temple","Younggren"],
+  "Derek":   ["Derek","Ziemer","Lewis","Carson","Jamie","Jake S"],
+  "Alex":    ["Alex","Nate Rohrer","Ty Parman","Watts","Boone","Roy"],
+  "Timmy":   ["Timmy","Minnerly","Mike Brand","Marty","Ty S","Plotkin"],
+  "TJ":      ["TJ","Noah","Chase Kieler","Danny","Wedel","Sir"],
+  "Zack":    ["Zack","Sam Wilk","Shravan","Justin","Willie","Tall Matt"],
+  "Akim":    ["Akim","Reetz","Jake B","Nate Ray","Kahl","Scotty"]
+};
+
+const CAPTAINS = Object.keys(ROSTERS);
+const FREEHOUSE = ['Cooper','TJ','Zack','Derek'];
+const DELANEYS  = ['Alex','Olson','Akim','Timmy'];
+
+// ══════════════════════════════════════════════════════
+// STANDINGS
+// ══════════════════════════════════════════════════════
+function buildStandings() {
+  const all = [...historicalGames.filter(function(g){return g.home.score>0||g.away.score>0;}), ...liveGames.filter(function(g){return g.status==='final';})];
+  const teams = {};
+  all.forEach(function(g){
+    ['home','away'].forEach(function(side,i){
+      const t = g[side]; const opp = g[i===0?'away':'home'];
+      if(!teams[t.name]) teams[t.name]={name:t.name,w:0,l:0,dw:0,dl:0,pf:0,pa:0};
+      const won = t.score > opp.score;
+      teams[t.name].pf += t.score; teams[t.name].pa += opp.score;
+      if(won) teams[t.name].w++; else teams[t.name].l++;
+      const inFH = FREEHOUSE.includes(t.name); const oppInFH = FREEHOUSE.includes(opp.name);
+      const inDL = DELANEYS.includes(t.name);  const oppInDL = DELANEYS.includes(opp.name);
+      const sameDiv = (inFH && oppInFH) || (inDL && oppInDL);
+      if(sameDiv){ if(won) teams[t.name].dw++; else teams[t.name].dl++; }
+    });
+  });
+  function renderDiv(divTeams, tbodyId) {
+    const sorted = divTeams.map(function(n){return teams[n]||{name:n,w:0,l:0,dw:0,dl:0,pf:0,pa:0};})
+      .sort(function(a,b){return (b.w-b.l)-(a.w-a.l)||(b.pf-b.pa)-(a.pf-a.pa);});
+    document.getElementById(tbodyId).innerHTML = sorted.map(function(t,i){
+      const diff = t.pf - t.pa;
+      const diffStr = (diff > 0 ? '+' : '') + diff;
+      const medal = '';
+      return '<tr class="'+(i===0?'leader':'')+'">'+
+        '<td>'+medal+t.name+'</td>'+
+        '<td class="nm">'+t.w+'</td>'+
+        '<td class="nm">'+t.l+'</td>'+
+        '<td class="nm">'+t.dw+'-'+t.dl+'</td>'+
+        '<td class="nm '+(diff>=0?'pos':'neg')+'">'+diffStr+'</td>'+
+      '</tr>';
+    }).join('');
+  }
+  renderDiv(FREEHOUSE,'standings-freehouse');
+  renderDiv(DELANEYS,'standings-delaneys');
+}
+
+// ══════════════════════════════════════════════════════
+// SCHEDULE
+// ══════════════════════════════════════════════════════
+const SCHEDULE = [
+  {wk:1,date:'18-Jan',games:[
+    {id:'g_w1_1',h:'TJ',    a:'Zack',  court:'Court 1 - 6:30'},
+    {id:'g_w1_2',h:'Derek', a:'Cooper',court:'Court 3 - 6:30'},
+    {id:'g_w1_3',h:'Olson', a:'Akim',  court:'Court 1 - 7:30'},
+    {id:'g_w1_4',h:'Alex',  a:'Timmy', court:'Court 3 - 7:30'}]},
+  {wk:2,date:'25-Jan',games:[
+    {id:'g_w2_1',h:'Alex',  a:'Akim',  court:'Court 1 - 6:30'},
+    {id:'g_w2_2',h:'Olson', a:'Timmy', court:'Court 3 - 6:30'},
+    {id:'g_w2_3',h:'Derek', a:'Zack',  court:'Court 1 - 7:30'},
+    {id:'g_w2_4',h:'TJ',    a:'Cooper',court:'Court 3 - 7:30'}]},
+  {wk:3,date:'01-Feb',games:[
+    {id:'g_w3_1',h:'TJ',    a:'Derek', court:'Court 1 - 6:30'},
+    {id:'g_w3_2',h:'Cooper',a:'Zack',  court:'Court 3 - 6:30'},
+    {id:'g_w3_3',h:'Olson', a:'Alex',  court:'Court 1 - 7:30'},
+    {id:'g_w3_4',h:'Timmy', a:'Akim',  court:'Court 3 - 7:30'}]},
+  {wk:4,date:'15-Feb',games:[
+    {id:'g_w4_1',h:'Alex',  a:'Derek', court:'Court 1 - 6:30'},
+    {id:'g_w4_2',h:'Olson', a:'TJ',    court:'Court 3 - 6:30'},
+    {id:'g_w4_3',h:'Timmy', a:'Cooper',court:'Court 1 - 7:30'},
+    {id:'g_w4_4',h:'Akim',  a:'Zack',  court:'Court 3 - 7:30'}]},
+  {wk:5,date:'22-Feb',games:[
+    {id:'g_w5_1',h:'Cooper',a:'Akim',  court:'Court 1 - 6:30'},
+    {id:'g_w5_2',h:'Derek', a:'Timmy', court:'Court 3 - 6:30'},
+    {id:'g_w5_3',h:'Zack',  a:'Olson', court:'Court 1 - 7:30'},
+    {id:'g_w5_4',h:'TJ',    a:'Alex',  court:'Court 3 - 7:30'}]},
+  {wk:6,date:'01-Mar',games:[
+    {id:'g_w6_1',h:'Alex',  a:'Zack',  court:'Court 1 - 6:30'},
+    {id:'g_w6_2',h:'Olson', a:'Cooper',court:'Court 3 - 6:30'},
+    {id:'g_w6_3',h:'Timmy', a:'TJ',    court:'Court 1 - 7:30'},
+    {id:'g_w6_4',h:'Akim',  a:'Derek', court:'Court 3 - 7:30'}]},
+  {wk:7,date:'08-Mar',games:[
+    {id:'g_w7_1',h:'Zack',  a:'Timmy', court:'Court 1 - 6:30'},
+    {id:'g_w7_2',h:'TJ',    a:'Akim',  court:'Court 3 - 6:30'},
+    {id:'g_w7_3',h:'Cooper',a:'Alex',  court:'Court 1 - 7:30'},
+    {id:'g_w7_4',h:'Derek', a:'Olson', court:'Court 3 - 7:30'}]},
+  {wk:8,date:'15-Mar',games:[
+    {id:'g_w8_1',h:'Akim',  a:'Olson', court:'Court 1 - 6:30'},
+    {id:'g_w8_2',h:'Timmy', a:'Alex',  court:'Court 3 - 6:30'},
+    {id:'g_w8_3',h:'Cooper',a:'Derek', court:'Court 1 - 7:30'},
+    {id:'g_w8_4',h:'Zack',  a:'TJ',    court:'Court 3 - 7:30'}]},
+  {wk:9,date:'29-Mar',games:[
+    {id:'g_w9_1',h:'Cooper',a:'TJ',    court:'Court 1 - 6:30'},
+    {id:'g_w9_2',h:'Zack',  a:'Derek', court:'Court 3 - 6:30'},
+    {id:'g_w9_3',h:'Timmy', a:'Olson', court:'Court 1 - 7:30'},
+    {id:'g_w9_4',h:'Akim',  a:'Alex',  court:'Court 3 - 7:30'}]},
+  {wk:10,date:'12-Apr',games:[
+    {id:'g_w10_1',h:'Akim', a:'Timmy', court:'Court 1 - 6:30'},
+    {id:'g_w10_2',h:'Alex', a:'Olson', court:'Court 3 - 6:30'},
+    {id:'g_w10_3',h:'Derek',a:'TJ',    court:'Court 1 - 7:30'},
+    {id:'g_w10_4',h:'Zack', a:'Cooper',court:'Court 3 - 7:30'}]},
+];
+
+function buildSchedule() {
+  const PLAYED_THROUGH = 6;
+  const NOW_WEEK = 7;
+  const wrap = document.getElementById('schedule-weeks');
+
+  const courtHeaders = ['Court 1 · 6:30','Court 3 · 6:30','Court 1 · 7:30','Court 3 · 7:30'];
+  let html = '<div class="sched-wrap"><table class="sched-table">';
+  html += '<thead><tr>' +
+    '<th class="wk-hdr">Week</th>' +
+    '<th class="court-hdr-1">Court 1 &middot; 6:30</th>' +
+    '<th class="court-hdr-2">Court 3 &middot; 6:30</th>' +
+    '<th class="court-hdr-1">Court 1 &middot; 7:30</th>' +
+    '<th class="court-hdr-2">Court 3 &middot; 7:30</th>' +
+  '</tr></thead><tbody>';
+
+  SCHEDULE.forEach(function(week) {
+    const isNow = week.wk === NOW_WEEK;
+    const played = week.wk <= PLAYED_THROUGH;
+    html += '<tr class="'+(isNow?'now-row':'')+'">';
+    html += '<td class="wk-cell">' +
+      '<span class="wk-num">Wk '+ week.wk +(isNow?' <span style="font-size:9px;color:var(--green)">NOW</span>':'')+'</span>' +
+      '<span class="wk-dt">'+ week.date +'</span>' +
+    '</td>';
+
+    week.games.forEach(function(g) {
+      const gdata = historicalGames.find(function(x){return x.id===g.id;});
+      if(played && gdata && gdata.home.score > 0) {
+        const hWin = gdata.home.score > gdata.away.score;
+        html += '<td><div class="game-cell" onclick="openBoxScore(\'' + g.id + '\')">' +
+          '<div class="gc-teams">' +
+            '<span style="'+(hWin?'color:var(--text)':'color:var(--muted)')+'">'+ g.h +'</span>' +
+            '<span class="gc-vs">vs</span>' +
+            '<span style="'+(!hWin?'color:var(--text)':'color:var(--muted)')+'">'+ g.a +'</span>' +
+          '</div>' +
+          '<div class="gc-score">'+ gdata.home.score +' – '+ gdata.away.score +'</div>' +
+        '</div></td>';
+      } else {
+        html += '<td><div class="game-cell tbd">' +
+          '<div class="gc-teams"><span style="color:var(--muted)">'+ g.h +'</span><span class="gc-vs">vs</span><span style="color:var(--muted)">'+ g.a +'</span></div>' +
+        '</div></td>';
+      }
+    });
+    html += '</tr>';
+  });
+
+  // Playoffs
+  html += '<tr class="playoff-row"><td class="wk-cell">19-Apr<br><small>Playoffs</small></td><td colspan="2">Wild Card</td><td colspan="2" style="border-left:1px solid var(--border)">Wild Card</td></tr>';
+  html += '<tr class="playoff-row"><td class="wk-cell">26-Apr<br><small>Playoffs</small></td><td colspan="2">Semi-Finals</td><td colspan="2" style="border-left:1px solid var(--border)">Semi-Finals</td></tr>';
+  html += '<tr class="playoff-row"><td class="wk-cell">3-May<br><small>Finals</small></td><td colspan="4" style="text-align:center;color:var(--amber);font-weight:700;font-style:normal">🏆 Championship Game</td></tr>';
+
+  html += '</tbody></table></div>';
+  document.getElementById('schedule-weeks').innerHTML = html;
+}
+
+function openBoxScore(gameId) {
+  const g = historicalGames.find(x=>x.id===gameId);
+  if(!g) return;
+  const hWin = g.home.score > g.away.score;
+  document.getElementById('bs-title').textContent = `${g.home.name} vs ${g.away.name}`;
+  document.getElementById('bs-content').innerHTML = `
+    <div class="bs-score-bar">
+      <div class="bs-team">
+        <div class="bs-team-name">${g.home.name}</div>
+        <div class="bs-score ${hWin?'winner':''}">${g.home.score}</div>
+      </div>
+      <div class="bs-sep">–</div>
+      <div class="bs-team">
+        <div class="bs-team-name">${g.away.name}</div>
+        <div class="bs-score ${!hWin?'winner':''}">${g.away.score}</div>
+      </div>
+    </div>
+    ${buildBST(g.home)}
+    ${buildBST(g.away)}
+  `;
+  document.getElementById('bs-overlay').classList.add('open');
+}
+
+function buildBST(team) {
+  var rows = team.players.map(function(p){
+    if(p.pts===0&&p.reb===0&&p.ast===0&&p.blk===0&&p.stl===0&&p.to===0&&p.fls===0) return '';
+    var fga2=p.m2+p.x2, fga3=p.m3+p.x3, fta=p.mft+p.xft;
+    var fg=fga2+fga3>0?((p.m2+p.m3)/(fga2+fga3)*100).toFixed(0)+'%':'—';
+    var ft=fta>0?(p.mft/fta*100).toFixed(0)+'%':'—';
+    return '<tr>'+
+      '<td class="bst-name">'+p.name+'</td>'+
+      '<td>'+p.pts+'</td>'+
+      '<td>'+fg+'</td>'+
+      '<td>'+(p.m2+p.m3)+'/'+(fga2+fga3)+'</td>'+
+      '<td>'+p.m3+'/'+fga3+'</td>'+
+      '<td>'+ft+'</td>'+
+      '<td>'+p.reb+'</td>'+
+      '<td>'+p.ast+'</td>'+
+      '<td>'+p.blk+'</td>'+
+      '<td>'+p.stl+'</td>'+
+      '<td>'+p.to+'</td>'+
+      '<td>'+p.fls+'</td>'+
+    '</tr>';
+  }).join('');
+  var total = team.score;
+  return '<div class="bs-table-wrap">'+
+    '<div class="bs-team-label">'+team.name+' &nbsp; <span style="color:var(--green)">'+total+'</span></div>'+
+    '<div style="overflow-x:auto"><table class="bst">'+
+      '<thead><tr>'+
+        '<th class="bst-name">Player</th>'+
+        '<th>PTS</th><th>FG%</th><th>FG</th><th>3P</th><th>FT%</th>'+
+        '<th>REB</th><th>AST</th><th>BLK</th><th>STL</th><th>TO</th><th>FL</th>'+
+      '</tr></thead>'+
+      '<tbody>'+rows+'</tbody>'+
+    '</table></div>'+
+  '</div>';
+}
+
+function closeBoxScore() {
+  document.getElementById('bs-overlay').classList.remove('open');
+}
+
+// ══════════════════════════════════════════════════════
+// STATS LEADERBOARD
+// ══════════════════════════════════════════════════════
+function isRostered(playerName, teamName) {
+  var roster = ROSTERS[teamName] || [];
+  return roster.includes(playerName);
+}
+
+var currentStat = 'pts';
+var currentPool = 'rostered';
+
+function buildPlayerMap(pool) {
+  var playerMap = {};
+  historicalGames.filter(function(g){return g.home.score>0||g.away.score>0;}).forEach(function(g){
+    ['home','away'].forEach(function(side){
+      g[side].players.forEach(function(p){
+        var rostered = isRostered(p.name, g[side].name);
+        if(pool==='rostered' && !rostered) return;
+        if(pool==='subs' && rostered) return;
+        var key = p.name+'|'+g[side].name;
+        if(!playerMap[key]) playerMap[key]={name:p.name,team:g[side].name,
+          pts:0,reb:0,ast:0,blk:0,stl:0,m2:0,m3:0,mft:0,x2:0,x3:0,xft:0,gp:0};
+        var pm = playerMap[key];
+        pm.pts+=p.pts; pm.reb+=p.reb; pm.ast+=p.ast; pm.blk+=p.blk; pm.stl+=p.stl;
+        pm.m2+=p.m2; pm.m3+=p.m3; pm.mft+=p.mft;
+        pm.x2+=p.x2; pm.x3+=p.x3; pm.xft+=p.xft; pm.gp++;
+      });
+    });
+  });
+  return Object.values(playerMap).filter(function(p){return p.gp>0;});
+}
+
+function getVal(p, stat) {
+  if(stat==='pts') return p.gp>0?p.pts/p.gp:0;
+  if(stat==='reb') return p.gp>0?p.reb/p.gp:0;
+  if(stat==='ast') return p.gp>0?p.ast/p.gp:0;
+  if(stat==='blk') return p.gp>0?p.blk/p.gp:0;
+  if(stat==='stl') return p.gp>0?p.stl/p.gp:0;
+  if(stat==='fg')  { var a=p.m2+p.m3+p.x2+p.x3; return a>0?(p.m2+p.m3)/a*100:0; }
+  if(stat==='3p')  { var a=p.m3+p.x3; return a>0?p.m3/a*100:0; }
+  if(stat==='ft')  { var a=p.mft+p.xft; return a>0?p.mft/a*100:0; }
+  return 0;
+}
+
+function fmtStat(val, stat) {
+  if(val===0) return '—';
+  if(['fg','3p','ft'].includes(stat)) return val.toFixed(1)+'%';
+  return val.toFixed(1);
+}
+
+function renderStats(stat, btn, pool) {
+  if(stat) currentStat = stat;
+  if(pool) currentPool = pool;
+  if(btn) {
+    document.querySelectorAll('.sf-btn').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');
+  }
+  // Highlight active column header
+  document.querySelectorAll('.sh').forEach(function(th){
+    th.classList.toggle('sh-active', th.dataset.stat===currentStat);
+  });
+  var players = buildPlayerMap(currentPool);
+  var sorted = players.sort(function(a,b){return getVal(b,currentStat)-getVal(a,currentStat);});
+  document.getElementById('stat-tbody').innerHTML = sorted.map(function(p){
+    return '<tr>' +
+      '<td class="sn">'+p.name+'</td>' +
+      '<td class="'+(currentStat==='pts'?'sh-val active-col':'sh-val')+'">'+fmtStat(getVal(p,'pts'),'pts')+'</td>' +
+      '<td class="'+(currentStat==='fg'?'sh-val active-col':'sh-val')+'">'+fmtStat(getVal(p,'fg'),'fg')+'</td>' +
+      '<td class="'+(currentStat==='3p'?'sh-val active-col':'sh-val')+'">'+fmtStat(getVal(p,'3p'),'3p')+'</td>' +
+      '<td class="'+(currentStat==='ft'?'sh-val active-col':'sh-val')+'">'+fmtStat(getVal(p,'ft'),'ft')+'</td>' +
+      '<td class="'+(currentStat==='reb'?'sh-val active-col':'sh-val')+'">'+fmtStat(getVal(p,'reb'),'reb')+'</td>' +
+      '<td class="'+(currentStat==='ast'?'sh-val active-col':'sh-val')+'">'+fmtStat(getVal(p,'ast'),'ast')+'</td>' +
+      '<td class="'+(currentStat==='blk'?'sh-val active-col':'sh-val')+'">'+fmtStat(getVal(p,'blk'),'blk')+'</td>' +
+      '<td class="'+(currentStat==='stl'?'sh-val active-col':'sh-val')+'">'+fmtStat(getVal(p,'stl'),'stl')+'</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function switchStatsPool(pool, btn) {
+  currentPool = pool;
+  document.querySelectorAll('.pool-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  renderStats(null, null, pool);
+}
+
+
+// ══════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════
+function showTab(id, btn) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(btn) btn.classList.add('active');
+}
+
+// ══════════════════════════════════════════════════════
+// SCOREKEEPER STATE
+// ══════════════════════════════════════════════════════
+let sk = null;
+let liveGames = [];
+
+function openScorekeeperSetup() {
+  document.getElementById('scorekeeper').classList.add('open');
+  document.getElementById('sk-setup').style.display = 'block';
+  document.getElementById('sk-game').style.display = 'none';
+
+  const PLAYED_THROUGH = 6;
+  const upcomingWeeks = SCHEDULE.filter(function(w){ return w.wk > PLAYED_THROUGH; });
+  const nextWeek = upcomingWeeks.length > 0 ? upcomingWeeks[0] : null;
+
+  let matchupHtml = '<div class="sk-setup-hdr">' +
+    '<div class="sk-setup-title">SELECT GAME</div>' +
+    '<button class="sk-close-btn" onclick="closeScorekeeper()">✕ Cancel</button>' +
+  '</div>';
+
+  if(nextWeek) {
+    matchupHtml += '<div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:12px">Week ' + nextWeek.wk + ' · ' + nextWeek.date + '</div>';
+    nextWeek.games.forEach(function(g) {
+      matchupHtml += '<div class="matchup-card" onclick="selectMatchup(\'' + g.h + '\',\'' + g.a + '\')">' +
+        '<div class="matchup-court">' + g.court + '</div>' +
+        '<div class="matchup-teams">' +
+          '<span class="matchup-team">' + g.h + '</span>' +
+          '<span class="matchup-vs">vs</span>' +
+          '<span class="matchup-team">' + g.a + '</span>' +
+        '</div>' +
+        '<div class="matchup-arrow">▶</div>' +
+      '</div>';
+    });
+  }
+
+  document.getElementById('sk-setup').innerHTML = matchupHtml;
+}
+
+
+function selectMatchup(home, away) {
+  // Show roster review screen with sub options
+  const homeRoster = ROSTERS[home] || [];
+  const awayRoster = ROSTERS[away] || [];
+
+  function rosterChips(team, roster, side) {
+    return roster.map(function(p) {
+      return '<div class="sub-chip" id="chip-'+side+'-'+p.replace(/[^a-z0-9]/gi,'_')+'" data-name="'+p+'" data-team="'+team+'" data-side="'+side+'" onclick="toggleSub(this)">' +
+        '<span class="sub-chip-name">'+p+'</span>' +
+        '<span class="sub-chip-status">✓</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  const html = '<div class="sk-setup-hdr">' +
+    '<div class="sk-setup-title">' + home + ' vs ' + away + '</div>' +
+    '<button class="sk-close-btn" onclick="openScorekeeperSetup()">← Back</button>' +
+  '</div>' +
+  '<div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">' + home + ' Roster</div>' +
+  '<div class="sub-grid" id="chips-home">' + rosterChips(home, homeRoster, 'home') + '</div>' +
+  '<div class="sub-add-row">' +
+    '<input class="sub-input" id="sub-input-home" type="text" placeholder="Add sub name..." />' +
+    '<button class="sub-add-btn" onclick="addSub(\'home\',\'' + home + '\')">+ Add</button>' +
+  '</div>' +
+  '<div style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin:14px 0 6px">' + away + ' Roster</div>' +
+  '<div class="sub-grid" id="chips-away">' + rosterChips(away, awayRoster, 'away') + '</div>' +
+  '<div class="sub-add-row">' +
+    '<input class="sub-input" id="sub-input-away" type="text" placeholder="Add sub name..." />' +
+    '<button class="sub-add-btn" onclick="addSub(\'away\',\'' + away + '\')">+ Add</button>' +
+  '</div>' +
+  '<button class="setup-start-btn" onclick="startGameFromRoster(\'' + home + '\',\'' + away + '\')">START GAME</button>';
+
+  document.getElementById('sk-setup').innerHTML = html;
+}
+
+function toggleSub(chip) {
+  chip.classList.toggle('excluded');
+  chip.querySelector('.sub-chip-status').textContent = chip.classList.contains('excluded') ? '✕' : '✓';
+}
+
+function addSub(side, team) {
+  const input = document.getElementById('sub-input-' + side);
+  const name = input.value.trim();
+  if(!name) return;
+  const grid = document.getElementById('chips-' + side);
+  const safeId = name.replace(/[^a-z0-9]/gi,'_');
+  const chip = document.createElement('div');
+  chip.className = 'sub-chip sub';
+  chip.id = 'chip-'+side+'-'+safeId;
+  chip.dataset.name = name;
+  chip.dataset.team = team;
+  chip.dataset.side = side;
+  chip.onclick = function(){ toggleSub(this); };
+  chip.innerHTML = '<span class="sub-chip-name">'+name+'</span><span class="sub-chip-status">✓</span>';
+  grid.appendChild(chip);
+  input.value = '';
+}
+
+function startGameFromRoster(home, away) {
+  // Collect active (non-excluded) players for each side
+  function getActivePlayers(side) {
+    return Array.from(document.querySelectorAll('#chips-'+side+' .sub-chip:not(.excluded)'))
+      .map(function(c){ return c.dataset.name; });
+  }
+  var homePlayers = getActivePlayers('home');
+  var awayPlayers = getActivePlayers('away');
+
+  if(homePlayers.length === 0 || awayPlayers.length === 0) {
+    alert('Each team needs at least one player.');
+    return;
+  }
+
+  // Build player objects
+  function makePlayers(names) {
+    return names.map(function(name){
+      return {name:name,pts:0,m2:0,m3:0,mft:0,x2:0,x3:0,xft:0,
+        reb:0,ast:0,blk:0,stl:0,to:0,fls:0,isSub:false};
+    });
+  }
+
+  var gameObj = {
+    id:'live_'+Date.now(), status:'live',
+    home:{name:home, score:0, players:makePlayers(homePlayers)},
+    away:{name:away, score:0, players:makePlayers(awayPlayers)}
+  };
+  liveGames.push(gameObj);
+  sk = {
+    gameIdx: liveGames.length-1,
+    currentTeam: 'home',
+    selectedPlayer: null,
+    currentHalf: 1,
+    possLog: [],       // events this possession
+    pendingSwitch: null, // team to switch to after confirm
+    altPossession: null, // team with next jump ball
+    possSnapshot: null,
+    reboundAvailable: false, // only true after a miss
+    assistAvailable: false,  // only true after a made FG
+  };
+
+  document.getElementById('sk-setup').style.display = 'none';
+  document.getElementById('sk-game').style.display = 'flex';
+  document.getElementById('sk-game').style.flexDirection = 'column';
+  document.getElementById('sk-game').style.height = '100%';
+
+  var g = liveGames[sk.gameIdx];
+  document.getElementById('sk-home-name').textContent = g.home.name;
+  document.getElementById('sk-away-name').textContent = g.away.name;
+  document.getElementById('sk-tab-home').textContent = g.home.name;
+  document.getElementById('sk-tab-away').textContent = g.away.name;
+  updateScoreDisplay();
+  renderPlayerList();
+  // Show jump ball prompt
+  var g2 = liveGames[sk.gameIdx];
+  document.getElementById('foul-committer-q').textContent = 'Who won the jump ball?';
+  document.getElementById('foul-committer-grid').innerHTML =
+    '<button class="fp-player-btn fp-jump" onclick="setStartingPossession(\'home\')" style="font-size:16px;padding:16px">' + g2.home.name + '</button>' +
+    '<button class="fp-player-btn fp-jump" onclick="setStartingPossession(\'away\')" style="font-size:16px;padding:16px">' + g2.away.name + '</button>';
+  document.getElementById('foul-committer-panel').classList.add('open');
+}
+
+
+function buildPlayers(cap) {
+  return ROSTERS[cap].map(name=>({
+    name, pts:0, m2:0, m3:0, mft:0, x2:0, x3:0, xft:0,
+    reb:0, ast:0, blk:0, stl:0, to:0, fls:0, isSub:false
+  }));
+}
+
+
+function closeScorekeeper() {
+  document.getElementById('scorekeeper').classList.remove('open');
+  closeFoulPanels();
+}
+
+function endGame() {
+  if(sk && liveGames[sk.gameIdx]) {
+    liveGames[sk.gameIdx].status = 'final';
+    buildStandings();
+  }
+  closeScorekeeper();
+}
+
+// ══════════════════════════════════════════════════════
+// SCOREKEEPER UI
+// ══════════════════════════════════════════════════════
+function updateScoreDisplay() {
+  if(!sk) return;
+  const g = liveGames[sk.gameIdx];
+  document.getElementById('sk-home-score').textContent = g.home.score;
+  document.getElementById('sk-away-score').textContent = g.away.score;
+  // Update team foul counts
+  const homeFouls = g.home.players.reduce(function(sum,p){return sum+(p.fls||0);},0);
+  const awayFouls = g.away.players.reduce(function(sum,p){return sum+(p.fls||0);},0);
+  document.getElementById('sk-home-fouls').textContent = homeFouls + ' fouls';
+  document.getElementById('sk-away-fouls').textContent = awayFouls + ' fouls';
+}
+
+function setHalf(h, btn) {
+  if(!sk) return;
+  sk.currentHalf = h;
+  document.querySelectorAll('.half-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  var lblMap={1:'1ST',2:'2ND',3:'3RD',4:'4TH','OT':'OT'}; document.getElementById('sk-half-lbl').textContent = lblMap[h]||h;
+}
+
+function switchTeam(team, tab) {
+  if(!sk) return;
+  sk.currentTeam = team;
+  sk.selectedPlayer = null;
+  document.querySelectorAll('.sk-tab').forEach(t=>t.classList.remove('active'));
+  tab.classList.add('active');
+  
+  renderPlayerList();
+}
+
+function renderPlayerList() {
+  if(!sk) return;
+  var g = liveGames[sk.gameIdx];
+  var players = g[sk.currentTeam].players;
+  document.getElementById('sk-grid').innerHTML = players.map(function(p,i){
+    var fls = p.fls||0;
+    var foulClass = fls>=6?'fouled-out':fls>=4?'foul-warning':'';
+    var foulLbl = fls>0?('<div class="foul-lbl '+(fls>=6?'foul-lbl-out':fls>=4?'foul-lbl-warn':'foul-lbl-on')+'">'+fls+'F</div>'):'';
+    return '<div class="p-tile '+(i===sk.selectedPlayer?'selected':'')+' '+(p.isSub?'sub':'')+' '+foulClass+'" '+
+      'id="ptile-'+i+'" onclick="selectPlayer('+i+')">' +
+      '<div class="p-name">'+p.name+(p.isSub?'*':'')+'</div>' +
+      foulLbl+
+    '</div>';
+  }).join('');
+}
+
+function selectPlayer(idx) {
+  sk.selectedPlayer = idx;
+  renderPlayerList();
+  const g = liveGames[sk.gameIdx];
+  const p = g[sk.currentTeam].players[idx];
+  document.getElementById('sp-name').textContent = p.name;
+  document.getElementById('sp-pts').textContent = p.pts+' PTS';
+  
+}
+
+function deselectPlayer() {
+  if(!sk) return;
+  sk.selectedPlayer = null;
+  renderPlayerList();
+  
+}
+
+
+// ── Possession log & summary ───────────────────
+function snapshotGameState() {
+  // Deep copy scores and player stats for current game
+  var g = liveGames[sk.gameIdx];
+  return {
+    homeScore: g.home.score,
+    awayScore: g.away.score,
+    homePlayers: g.home.players.map(function(p){ return Object.assign({},p); }),
+    awayPlayers: g.away.players.map(function(p){ return Object.assign({},p); }),
+  };
+}
+
+function restoreGameState(snapshot) {
+  var g = liveGames[sk.gameIdx];
+  g.home.score = snapshot.homeScore;
+  g.away.score = snapshot.awayScore;
+  g.home.players = snapshot.homePlayers.map(function(p){ return Object.assign({},p); });
+  g.away.players = snapshot.awayPlayers.map(function(p){ return Object.assign({},p); });
+}
+
+function logEvent(text) {
+  if(!sk) return;
+  sk.possLog.push(text);
+}
+
+function showPossessionSummary(switchToTeam) {
+  if(!sk) return;
+  sk.pendingSwitch = switchToTeam || null;
+  var log = sk.possLog;
+  var text = log.length > 0 ? log.join(' · ') : 'No stats recorded this possession.';
+  document.getElementById('poss-summary-text').innerHTML = text;
+  document.getElementById('poss-summary-panel').classList.add('open');
+  document.getElementById('foul-type-panel').classList.remove('open');
+  document.getElementById('foul-committer-panel').classList.remove('open');
+}
+
+function confirmPossession() {
+  document.getElementById('poss-summary-panel').classList.remove('open');
+  var switchTo = sk.pendingSwitch;
+  sk.possLog = [];
+  sk.pendingSwitch = null;
+  sk.reboundAvailable = false;
+  sk.assistAvailable = false;
+  sk.possSnapshot = snapshotGameState(); // snapshot start of next possession
+  deselectPlayer();
+  if(switchTo) {
+    sk.currentTeam = switchTo;
+    var tab = document.getElementById('sk-tab-'+switchTo);
+    document.querySelectorAll('.sk-tab').forEach(function(t){t.classList.remove('active');});
+    if(tab) tab.classList.add('active');
+    renderPlayerList();
+  }
+}
+
+function editPossession() {
+  document.getElementById('poss-summary-panel').classList.remove('open');
+  // Restore game state to start of this possession
+  if(sk.possSnapshot) {
+    restoreGameState(sk.possSnapshot);
+    updateScoreDisplay();
+    renderPlayerList();
+  }
+  sk.possLog = [];
+  sk.pendingSwitch = null;
+}
+
+
+// ── Block flow ─────────────────────────────────
+function openBlockPanel(blockedPlayer) {
+  sk._blocked = {idx: sk.selectedPlayer, team: sk.currentTeam, player: blockedPlayer};
+  document.getElementById('foul-committer-q').textContent = blockedPlayer.name + ' got blocked — 2 or 3?';
+  document.getElementById('foul-committer-grid').innerHTML =
+    '<button class="fp-player-btn fp-confirm-yes" onclick="blockShotType(2)">2PT</button>' +
+    '<button class="fp-player-btn fp-confirm-yes" onclick="blockShotType(3)">3PT</button>';
+  document.getElementById('foul-committer-panel').classList.add('open');
+}
+
+function blockShotType(pts) {
+  sk._blockPts = pts;
+  var g = liveGames[sk.gameIdx];
+  var defTeam = sk._blocked.team === 'home' ? 'away' : 'home';
+  document.getElementById('foul-committer-q').textContent = 'Who got the block on ' + g[defTeam].name + '?';
+  document.getElementById('foul-committer-grid').innerHTML = g[defTeam].players.map(function(p,i){
+    return '<button class="fp-player-btn" onclick="recordBlock('+i+',\''+defTeam+'\')">' + p.name + '</button>';
+  }).join('');
+}
+
+function recordBlock(blockerIdx, blockerTeam) {
+  closeFoulPanels();
+  var g = liveGames[sk.gameIdx];
+  var blocker = g[blockerTeam].players[blockerIdx];
+  var blocked = g[sk._blocked.team].players[sk._blocked.idx];
+  var pts = sk._blockPts;
+
+  if(pts === 2){ blocked.x2++; logEvent(blocked.name + ' missed 2 (blocked)'); }
+  else { blocked.x3++; logEvent(blocked.name + ' missed 3 (blocked)'); }
+
+  blocker.blk++;
+  logEvent(blocker.name + ' block');
+
+  sk.reboundAvailable = true;
+  updateScoreDisplay();
+  renderPlayerList();
+  promptRebound();
+}
+
+// ── Toast ───────────────────────────────────────
+function showToast(msg) {
+  var t = document.getElementById('sk-toast');
+  if(!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 2000);
+}
+function recordStat(type) {
+  if(!sk || sk.selectedPlayer===null) return;
+  const g = liveGames[sk.gameIdx];
+  const team = g[sk.currentTeam];
+  const p = team.players[sk.selectedPlayer];
+
+  if(type==='m2'){p.m2++;p.pts+=2;team.score+=2;logEvent(p.name+' made 2');sk.reboundAvailable=false;sk.assistAvailable=true;}
+  else if(type==='m3'){p.m3++;p.pts+=3;team.score+=3;logEvent(p.name+' made 3');sk.reboundAvailable=false;sk.assistAvailable=true;}
+  else if(type==='mft'){p.mft++;p.pts+=1;team.score+=1;logEvent(p.name+' made FT');sk.reboundAvailable=false;sk.assistAvailable=false;}
+  else if(type==='x2'){p.x2++;logEvent(p.name+' missed 2');sk.reboundAvailable=true;sk.assistAvailable=false;}
+  else if(type==='x3'){p.x3++;logEvent(p.name+' missed 3');sk.reboundAvailable=true;sk.assistAvailable=false;}
+  else if(type==='xft'){p.xft++;logEvent(p.name+' missed FT');sk.reboundAvailable=false;}
+  else if(type==='reb'){
+    if(!sk.reboundAvailable){showToast('Record a missed shot first');return;}
+    p.reb++;logEvent(p.name+' rebound');sk.reboundAvailable=false;
+  }
+  else if(type==='ast'){
+    if(!sk.assistAvailable){showToast('Record a made FG first');return;}
+    p.ast++;logEvent(p.name+' assist');sk.assistAvailable=false;
+  }
+  else if(type==='blk'){
+    // Block triggers a miss + rebound flow
+    openBlockPanel(p);return;
+  }
+  // stl recorded via turnover prompt only
+  else if(type==='to'){p.to++;logEvent(p.name+' turnover');}
+
+  updateScoreDisplay();
+  renderPlayerList();
+  document.getElementById('sp-pts').textContent = p.pts+' PTS';
+  var tile = document.getElementById('ptile-'+sk.selectedPlayer);
+  if(tile){tile.classList.remove('flash');void tile.offsetWidth;tile.classList.add('flash');}
+
+  // Made basket: prompt assist then switch possession
+  if(type==='m2'||type==='m3') {
+    showConfirm('Assist? '+p.name+' scored',
+      function(){promptAssist(function(){doSwitchPossession();});},
+      function(){doSwitchPossession();}
+    );
+    return;
+  }
+
+  // Missed shot: prompt off or def rebound
+  if(type==='x2'||type==='x3') {
+    promptRebound();
+    return;
+  }
+
+  // Turnover: prompt steal
+  if(type==='to') {
+    showConfirm('Was there a steal?',
+      function(){promptSteal();},
+      function(){doSwitchPossession();}
+    );
+    return;
+  }
+}
+
+// ── Confirm (unified bottom panel) ─────────────
+var confirmTimer = null;
+function showConfirm(msg, onYes, onNo, yesLabel, noLabel) {
+  clearTimeout(confirmTimer);
+  closeFoulPanels();
+  var yLbl = yesLabel || 'YES';
+  var nLbl = noLabel  || 'NO';
+  document.getElementById('foul-committer-q').textContent = msg;
+  document.getElementById('foul-committer-grid').innerHTML =
+    '<button class="fp-player-btn fp-confirm-yes" onclick="confirmYes()">' + yLbl + '</button>' +
+    '<button class="fp-player-btn fp-confirm-no"  onclick="confirmNo()">'  + nLbl + '</button>';
+  sk._confirmYes = onYes;
+  sk._confirmNo  = onNo;
+  document.getElementById('foul-committer-panel').classList.add('open');
+  confirmTimer = setTimeout(function(){confirmNo();}, 10000);
+}
+function confirmYes() {
+  clearTimeout(confirmTimer);
+  closeFoulPanels();
+  if(sk._confirmYes){var fn=sk._confirmYes;sk._confirmYes=null;fn();}
+}
+function confirmNo() {
+  clearTimeout(confirmTimer);
+  closeFoulPanels();
+  if(sk._confirmNo){var fn=sk._confirmNo;sk._confirmNo=null;fn();}
+}
+function hideConfirm() { closeFoulPanels(); }
+
+function promptAssist(callback) {
+  var g = liveGames[sk.gameIdx];
+  var scorerIdx = sk.selectedPlayer;
+  var scorerTeam = sk.currentTeam;
+  document.getElementById('foul-committer-q').textContent = 'Assist — who made the pass?';
+  var players = g[scorerTeam].players;
+  document.getElementById('foul-committer-grid').innerHTML = players.map(function(p,i){
+    if(i===scorerIdx) return '';
+    return '<button class="fp-player-btn" onclick="recordAssist('+i+',\''+scorerTeam+'\')">'+p.name+'</button>';
+  }).join('');
+  // Store callback for after assist recorded
+  sk._afterAssist = callback;
+  document.getElementById('foul-committer-panel').classList.add('open');
+}
+
+function recordAssist(idx, team) {
+  var g = liveGames[sk.gameIdx];
+  var ap=g[team].players[idx];ap.ast++;logEvent(ap.name+' assist');
+  closeFoulPanels();
+  renderPlayerList();
+  if(sk._afterAssist){sk._afterAssist();sk._afterAssist=null;}
+}
+
+function promptSteal() {
+  var g = liveGames[sk.gameIdx];
+  var defTeam = sk.currentTeam==='home'?'away':'home';
+  document.getElementById('foul-committer-q').textContent = 'Steal — who got it?';
+  document.getElementById('foul-committer-grid').innerHTML = g[defTeam].players.map(function(p,i){
+    return '<button class="fp-player-btn" onclick="recordSteal('+i+',\''+defTeam+'\')">'+p.name+'</button>';
+  }).join('');
+  document.getElementById('foul-committer-panel').classList.add('open');
+}
+
+function recordSteal(idx, team) {
+  var g = liveGames[sk.gameIdx];
+  var sp=g[team].players[idx];sp.stl++;logEvent(sp.name+' steal');
+  closeFoulPanels();
+  renderPlayerList();
+  doSwitchPossession();
+}
+
+function promptRebound() {
+  var g = liveGames[sk.gameIdx];
+  showConfirm('Offensive or Defensive rebound?',
+    function(){
+      // Offensive rebound — stay with same team, pick who got it
+      document.getElementById('foul-committer-q').textContent = 'Offensive Rebound — who got it?';
+      document.getElementById('foul-committer-grid').innerHTML = g[sk.currentTeam].players.map(function(p,i){
+        return '<button class="fp-player-btn" onclick="recordReboundPlayer('+i+',\''+sk.currentTeam+'\',false)">'+p.name+'</button>';
+      }).join('');
+      document.getElementById('foul-committer-panel').classList.add('open');
+    },
+    function(){
+      // Defensive rebound — switch possession, pick who got it
+      var defTeam = sk.currentTeam==='home'?'away':'home';
+      document.getElementById('foul-committer-q').textContent = 'Defensive Rebound — who got it?';
+      document.getElementById('foul-committer-grid').innerHTML = g[defTeam].players.map(function(p,i){
+        return '<button class="fp-player-btn" onclick="recordReboundPlayer('+i+',\''+defTeam+'\',true)">'+p.name+'</button>';
+      }).join('');
+      document.getElementById('foul-committer-panel').classList.add('open');
+    },
+    'OFF', 'DEF'
+  );
+}
+
+function recordReboundPlayer(idx, team, switchAfter) {
+  var g = liveGames[sk.gameIdx];
+  var rp=g[team].players[idx];rp.reb++;logEvent(rp.name+(switchAfter?' def rebound':' off rebound'));
+  closeFoulPanels();
+  if(switchAfter) doSwitchPossession();
+  else { deselectPlayer(); renderPlayerList(); }
+}
+
+// ── Possession ─────────────────────────────────
+function doSwitchPossession() {
+  if(!sk) return;
+  var other = sk.currentTeam==='home'?'away':'home';
+  showPossessionSummary(other);
+}
+
+function setStartingPossession(team) {
+  closeFoulPanels();
+  sk.currentTeam = team;
+  // Alt possession goes to the team that LOST the jump
+  sk.altPossession = team === 'home' ? 'away' : 'home';
+  sk.possSnapshot = snapshotGameState();
+  sk.possLog = [];
+  var tab = document.getElementById('sk-tab-'+team);
+  document.querySelectorAll('.sk-tab').forEach(function(t){t.classList.remove('active');});
+  if(tab) tab.classList.add('active');
+  renderPlayerList();
+  updatePossessionIndicator();
+}
+
+function updatePossessionIndicator() {
+  if(!sk) return;
+  var g = liveGames[sk.gameIdx];
+  var dot = document.getElementById('poss-dot');
+  if(dot) dot.style.background = sk.currentTeam==='home'?'var(--green)':'var(--amber)';
+  // Show alternating possession arrow
+  if(sk.altPossession) {
+    var row = document.getElementById('sk-poss-row');
+    var arrow = document.getElementById('sk-poss-arrow');
+    if(row && arrow) {
+      row.style.display = 'block';
+      var altName = g[sk.altPossession].name;
+      var side = sk.altPossession === 'home' ? '← ' + altName : altName + ' →';
+      arrow.textContent = side;
+    }
+  }
+}
+
+function switchTeam(team, tab) {
+  if(!sk) return;
+  sk.currentTeam = team;
+  sk.selectedPlayer = null;
+  document.querySelectorAll('.sk-tab').forEach(function(t){t.classList.remove('active');});
+  tab.classList.add('active');
+  renderPlayerList();
+}
+
+// Legacy stubs
+function switchPossession() { doSwitchPossession(); }
+function switchToTeam(team) {
+  sk.currentTeam = team;
+  var tab = document.getElementById('sk-tab-'+team);
+  document.querySelectorAll('.sk-tab').forEach(function(t){t.classList.remove('active');});
+  if(tab) tab.classList.add('active');
+  renderPlayerList();
+}
+function updatePossessionDisplay() {}
+
+
+// ══════════════════════════════════════════════════════
+// JUMP BALL
+// ══════════════════════════════════════════════════════
+function jumpBallWinner(team) {
+  document.getElementById('jb-overlay').classList.remove('open');
+  const other = team==='home'?'away':'home';
+  sk.possession = team;
+  sk.nextJump = other;
+  updatePossessionDisplay();
+  const tab = document.getElementById('sk-tab-'+team);
+  switchTeam(team, tab);
+}
+
+function openFoulPanel() {
+  if(!sk||sk.selectedPlayer===null) return;
+  closeFoulPanels();
+  // Selected player drew the foul (or committed offensive foul)
+  sk.foulDrawerIdx  = sk.selectedPlayer;
+  sk.foulDrawerTeam = sk.currentTeam;
+  sk.foulCommitterTeam = sk.currentTeam==='home'?'away':'home';
+  var g = liveGames[sk.gameIdx];
+  var p = g[sk.currentTeam].players[sk.selectedPlayer];
+  document.getElementById('foul-type-q').innerHTML =
+    '<strong>'+p.name+'</strong> — offensive or defensive foul?';
+  document.getElementById('foul-type-panel').classList.add('open');
+}
+
+function commitFoulType(type) {
+  document.getElementById('foul-type-panel').classList.remove('open');
+  var g = liveGames[sk.gameIdx];
+  var drawer = g[sk.foulDrawerTeam].players[sk.foulDrawerIdx];
+
+  if(type==='offensive') {
+    // Personal foul + TO on offensive player, NOT a team foul, switch possession
+    drawer.fls++;
+    drawer.to++;
+    logEvent(drawer.name+' offensive foul + turnover');
+    updateScoreDisplay();
+    renderPlayerList();
+    deselectPlayer();
+    doSwitchPossession();
+    return;
+  }
+
+  // Defensive foul — ask shooting or not
+  sk._foulDrawer = drawer;
+  showConfirm('Was it a shooting foul?',
+    function(){ promptShootingFoulFTs(); },
+    function(){ promptFoulCommitter(); }
+  );
+}
+
+function promptFoulCommitter() {
+  // Non-shooting defensive foul — pick who committed it
+  var g = liveGames[sk.gameIdx];
+  var defTeam = sk.foulCommitterTeam;
+  document.getElementById('foul-committer-q').textContent = 'Who committed the foul on '+g[defTeam].name+'?';
+  document.getElementById('foul-committer-grid').innerHTML = g[defTeam].players.map(function(p,i){
+    return '<button class="fp-player-btn" onclick="recordDefFoulCommitter('+i+')">'+p.name+'</button>';
+  }).join('');
+  document.getElementById('foul-committer-panel').classList.add('open');
+}
+
+function recordDefFoulCommitter(idx) {
+  closeFoulPanels();
+  var g = liveGames[sk.gameIdx];
+  var committer = g[sk.foulCommitterTeam].players[idx];
+  committer.fls++;
+  logEvent(committer.name+' defensive foul on '+sk._foulDrawer.name);
+  updateScoreDisplay();
+  renderPlayerList();
+  deselectPlayer();
+  // Possession stays with fouled team
+}
+
+function promptShootingFoulFTs() {
+  // Ask 1, 2, or 3 FTs
+  document.getElementById('foul-committer-q').textContent = 'How many free throws?';
+  document.getElementById('foul-committer-grid').innerHTML =
+    '<button class="fp-player-btn fp-confirm-yes" onclick="setupFTs(1)">1 FT</button>'+
+    '<button class="fp-player-btn fp-confirm-yes" onclick="setupFTs(2)">2 FTs</button>'+
+    '<button class="fp-player-btn fp-confirm-yes" onclick="setupFTs(3)">3 FTs</button>';
+  document.getElementById('foul-committer-panel').classList.add('open');
+}
+
+function setupFTs(count) {
+  closeFoulPanels();
+  var g = liveGames[sk.gameIdx];
+  var defTeam = sk.foulCommitterTeam;
+
+  // Pick who committed the foul first
+  sk._ftTotal = count;
+  sk._ftRemaining = count;
+  sk._ftShooter = sk._foulDrawer;
+
+  document.getElementById('foul-committer-q').textContent = 'Who committed the foul on '+g[defTeam].name+'?';
+  document.getElementById('foul-committer-grid').innerHTML = g[defTeam].players.map(function(p,i){
+    return '<button class="fp-player-btn" onclick="recordShootingFoulCommitter('+i+')">'+p.name+'</button>';
+  }).join('');
+  document.getElementById('foul-committer-panel').classList.add('open');
+
+  // If 1 FT, need to ask if it was a made 2 or 3 first
+  if(count===1) sk._ftAnd1 = true;
+  else sk._ftAnd1 = false;
+}
+
+function recordShootingFoulCommitter(idx) {
+  closeFoulPanels();
+  var g = liveGames[sk.gameIdx];
+  var committer = g[sk.foulCommitterTeam].players[idx];
+  committer.fls++;
+  logEvent(committer.name+' shooting foul on '+sk._ftShooter.name);
+  updateScoreDisplay();
+
+  if(sk._ftAnd1) {
+    // And-1: ask 2PT or 3PT directly
+    document.getElementById('foul-committer-q').textContent = sk._ftShooter.name+' — and-1, was it a 2 or 3?';
+    document.getElementById('foul-committer-grid').innerHTML =
+      '<button class="fp-player-btn fp-confirm-yes" onclick="recordAnd1(2)">2PT</button>'+
+      '<button class="fp-player-btn fp-confirm-yes" onclick="recordAnd1(3)">3PT</button>';
+    document.getElementById('foul-committer-panel').classList.add('open');
+  } else {
+    promptNextFT();
+  }
+}
+
+function recordAnd1(pts) {
+  closeFoulPanels();
+  var g = liveGames[sk.gameIdx];
+  var shooter = sk._ftShooter;
+  if(pts===2){ shooter.m2++; shooter.pts+=2; g[sk.foulDrawerTeam].score+=2; logEvent(shooter.name+' made 2 (and-1)'); }
+  else { shooter.m3++; shooter.pts+=3; g[sk.foulDrawerTeam].score+=3; logEvent(shooter.name+' made 3 (and-1)'); }
+  updateScoreDisplay();
+  renderPlayerList();
+  promptNextFT();
+}
+
+function promptNextFT() {
+  closeFoulPanels();
+  var total = sk._ftTotal;
+  var remaining = sk._ftRemaining;
+  var num = total - remaining + 1;
+  var shooter = sk._ftShooter;
+  document.getElementById('foul-committer-q').textContent = shooter.name+' — FT '+num+' of '+total;
+  document.getElementById('foul-committer-grid').innerHTML =
+    '<button class="fp-player-btn fp-confirm-yes" onclick="recordFT(true)">✓ MADE</button>'+
+    '<button class="fp-player-btn fp-confirm-no"  onclick="recordFT(false)">✕ MISSED</button>';
+  document.getElementById('foul-committer-panel').classList.add('open');
+}
+
+function recordFT(made) {
+  closeFoulPanels();
+  var g = liveGames[sk.gameIdx];
+  var shooter = sk._ftShooter;
+  var isLast = sk._ftRemaining === 1;
+
+  if(made) {
+    shooter.mft++;
+    shooter.pts++;
+    g[sk.foulDrawerTeam].score++;
+    logEvent(shooter.name+' made FT ('+( sk._ftTotal-sk._ftRemaining+1)+'/'+sk._ftTotal+')');
+    updateScoreDisplay();
+    renderPlayerList();
+    sk._ftRemaining--;
+    if(isLast) {
+      // Last FT made — possession switches
+      doSwitchPossession();
+    } else {
+      promptNextFT();
+    }
+  } else {
+    shooter.xft++;
+    logEvent(shooter.name+' missed FT ('+(sk._ftTotal-sk._ftRemaining+1)+'/'+sk._ftTotal+')');
+    updateScoreDisplay();
+    renderPlayerList();
+    sk._ftRemaining--;
+    if(isLast) {
+      // Last FT missed — rebound
+      sk.reboundAvailable = true;
+      promptRebound();
+    } else {
+      promptNextFT();
+    }
+  }
+}
+
+function recordFoulCommitter(idx) {
+  // Legacy stub — redirect to new handler
+  recordDefFoulCommitter(idx);
+}
+function closeFoulPanels() {
+  document.getElementById('foul-type-panel').classList.remove('open');
+  document.getElementById('foul-committer-panel').classList.remove('open');
+}
+
+// ══════════════════════════════════════════════════════
+// LIVE BOX SCORE
+// ══════════════════════════════════════════════════════
+function toggleStatsOverlay() {
+  const el = document.getElementById('sk-stats-overlay');
+  if(el.classList.contains('open')) {
+    el.classList.remove('open');
+    return;
+  }
+  if(!sk) return;
+  const g = liveGames[sk.gameIdx];
+  document.getElementById('sso-content').innerHTML =
+    buildBST(g.home) + buildBST(g.away);
+  el.classList.add('open');
+}
+
+// ══════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════
+buildStandings();
+buildSchedule();
+renderStats('pts', null, 'rostered');
+</script>
+</body>
+</html>
