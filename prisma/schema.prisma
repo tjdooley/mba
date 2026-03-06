@@ -1,0 +1,203 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Player {
+  id          String   @id @default(cuid())
+  name        String
+  nickname    String?
+  email       String?  // optional — for email notifications (future)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  teamRosters  TeamRoster[]
+  gameStats    GameStat[]
+  sessionStats SessionStat[]
+  careerStats  CareerStat?
+  captainOf    Team[]
+}
+
+model Session {
+  id        String        @id @default(cuid())
+  name      String        // e.g. "Spring 2026", "Fall 2025"
+  period    SessionPeriod // FALL | SPRING
+  year      Int
+  startDate DateTime
+  endDate   DateTime?
+  isActive  Boolean       @default(true)
+
+  teams        Team[]
+  games        Game[]
+  sessionStats SessionStat[]
+  subPlayers   SubPlayer[]
+}
+
+enum SessionPeriod {
+  FALL
+  SPRING
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id])
+  captainId String
+  captain   Player   @relation(fields: [captainId], references: [id])
+  division  Division // FREEHOUSE | DELANEYS
+
+  // Standings — updated after each game is finalized
+  wins              Int @default(0)
+  losses            Int @default(0)
+  divisionWins      Int @default(0)
+  divisionLosses    Int @default(0)
+  pointDifferential Int @default(0)
+
+  roster    TeamRoster[]
+  homeGames Game[] @relation("HomeTeam")
+  awayGames Game[] @relation("AwayTeam")
+
+  @@unique([sessionId, captainId])
+}
+
+enum Division {
+  FREEHOUSE  // Cooper, TJ, Zack, Derek (Spring 2026)
+  DELANEYS   // Alex, Olson, Akim, Timmy (Spring 2026)
+  // Note: division assignments may change each session at draft time
+}
+
+model TeamRoster {
+  id       String  @id @default(cuid())
+  teamId   String
+  team     Team    @relation(fields: [teamId], references: [id])
+  playerId String
+  player   Player  @relation(fields: [playerId], references: [id])
+  isSub    Boolean @default(false) // true if player subbed in from sub list
+
+  @@unique([teamId, playerId])
+}
+
+model Game {
+  id           String     @id @default(cuid())
+  sessionId    String
+  session      Session    @relation(fields: [sessionId], references: [id])
+  homeTeamId   String
+  homeTeam     Team       @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId   String
+  awayTeam     Team       @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  scheduledAt  DateTime
+  court        String?    // e.g. "Court 1 (Left Side) - 6:30"
+  week         Int?       // regular season week number; null for playoffs
+  isPlayoff    Boolean    @default(false)
+  playoffRound Int?       // 1, 2, or 3
+  status       GameStatus @default(SCHEDULED)
+  homeScore    Int        @default(0)
+  awayScore    Int        @default(0)
+
+  gameStats GameStat[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+enum GameStatus {
+  SCHEDULED
+  LIVE
+  FINAL
+}
+
+model GameStat {
+  id       String @id @default(cuid())
+  gameId   String
+  game     Game   @relation(fields: [gameId], references: [id])
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id])
+
+  fgMade          Int @default(0)
+  fgAttempted     Int @default(0)
+  threesMade      Int @default(0)
+  threesAttempted Int @default(0)
+  ftMade          Int @default(0)
+  ftAttempted     Int @default(0)
+  points          Int @default(0)
+  rebounds        Int @default(0)
+  assists         Int @default(0)
+  blocks          Int @default(0)
+  steals          Int @default(0)
+  turnovers       Int @default(0)
+  fouls           Int? // nullable — not tracked in all historical games
+
+  @@unique([gameId, playerId])
+}
+
+model SessionStat {
+  id        String  @id @default(cuid())
+  sessionId String
+  session   Session @relation(fields: [sessionId], references: [id])
+  playerId  String
+  player    Player  @relation(fields: [playerId], references: [id])
+
+  // Aggregated after each game is finalized
+  gamesPlayed     Int @default(0)
+  fgMade          Int @default(0)
+  fgAttempted     Int @default(0)
+  threesMade      Int @default(0)
+  threesAttempted Int @default(0)
+  ftMade          Int @default(0)
+  ftAttempted     Int @default(0)
+  points          Int @default(0)
+  rebounds        Int @default(0)
+  assists         Int @default(0)
+  blocks          Int @default(0)
+  steals          Int @default(0)
+  turnovers       Int @default(0)
+  fouls           Int? // nullable — not tracked in all historical sessions
+
+  @@unique([sessionId, playerId])
+}
+
+// P2 — Sub list for a session. Admin editable, readable by admins + captains.
+model SubPlayer {
+  id          String  @id @default(cuid())
+  sessionId   String
+  session     Session @relation(fields: [sessionId], references: [id])
+  name        String
+  position    String? // e.g. "G", "F", "C", "G/F"
+  contactInfo String? // phone number
+  notes       String? // e.g. "Cooper recommendation"
+  isAvailable Boolean @default(true)
+
+  @@unique([sessionId, name])
+}
+
+model CareerStat {
+  id       String @id @default(cuid())
+  playerId String @unique
+  player   Player @relation(fields: [playerId], references: [id])
+
+  // Aggregated across all sessions — recomputed when a session is finalized
+  sessionsPlayed  Int @default(0)
+  gamesPlayed     Int @default(0)
+  fgMade          Int @default(0)
+  fgAttempted     Int @default(0)
+  threesMade      Int @default(0)
+  threesAttempted Int @default(0)
+  ftMade          Int @default(0)
+  ftAttempted     Int @default(0)
+  points          Int @default(0)
+  rebounds        Int @default(0)
+  assists         Int @default(0)
+  blocks          Int @default(0)
+  steals          Int @default(0)
+  turnovers       Int @default(0)
+  fouls           Int? // nullable — not tracked in all historical sessions
+}
