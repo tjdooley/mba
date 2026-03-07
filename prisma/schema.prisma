@@ -15,8 +15,9 @@ datasource db {
 
 model Player {
   id          String   @id @default(cuid())
-  name        String
-  nickname    String?
+  firstName   String
+  lastName    String
+  displayName String   // shown in box scores, standings, stat tables (e.g. "Armga", "Chase Kieler", "Sam BZ")
   email       String?  // optional — for email notifications (future)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
