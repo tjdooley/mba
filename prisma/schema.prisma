@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -17,8 +11,8 @@ model Player {
   id          String   @id @default(cuid())
   firstName   String
   lastName    String
-  displayName String   // shown in box scores, standings, stat tables (e.g. "Armga", "Chase Kieler", "Sam BZ")
-  email       String?  // optional — for email notifications (future)
+  displayName String
+  email       String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
@@ -30,13 +24,15 @@ model Player {
 }
 
 model Session {
-  id        String        @id @default(cuid())
-  name      String        // e.g. "Spring 2026", "Fall 2025"
-  period    SessionPeriod // FALL | SPRING
-  year      Int
-  startDate DateTime
-  endDate   DateTime?
-  isActive  Boolean       @default(true)
+  id             String        @id @default(cuid())
+  name           String
+  period         SessionPeriod
+  year           Int
+  startDate      DateTime
+  endDate        DateTime?
+  isActive       Boolean       @default(true)
+  championTeamId String?
+  champion       Team?         @relation("SessionChampion", fields: [championTeamId], references: [id])
 
   teams        Team[]
   games        Game[]
@@ -55,26 +51,25 @@ model Team {
   session   Session  @relation(fields: [sessionId], references: [id])
   captainId String
   captain   Player   @relation(fields: [captainId], references: [id])
-  division  Division // FREEHOUSE | DELANEYS
+  division  Division
 
-  // Standings — updated after each game is finalized
   wins              Int @default(0)
   losses            Int @default(0)
   divisionWins      Int @default(0)
   divisionLosses    Int @default(0)
   pointDifferential Int @default(0)
 
-  roster    TeamRoster[]
-  homeGames Game[] @relation("HomeTeam")
-  awayGames Game[] @relation("AwayTeam")
+  roster      TeamRoster[]
+  homeGames   Game[]    @relation("HomeTeam")
+  awayGames   Game[]    @relation("AwayTeam")
+  championOf  Session[] @relation("SessionChampion")
 
   @@unique([sessionId, captainId])
 }
 
 enum Division {
-  FREEHOUSE  // Cooper, TJ, Zack, Derek (Spring 2026)
-  DELANEYS   // Alex, Olson, Akim, Timmy (Spring 2026)
-  // Note: division assignments may change each session at draft time
+  FREEHOUSE
+  DELANEYS
 }
 
 model TeamRoster {
@@ -83,7 +78,7 @@ model TeamRoster {
   team     Team    @relation(fields: [teamId], references: [id])
   playerId String
   player   Player  @relation(fields: [playerId], references: [id])
-  isSub    Boolean @default(false) // true if player subbed in from sub list
+  isSub    Boolean @default(false)
 
   @@unique([teamId, playerId])
 }
@@ -97,10 +92,10 @@ model Game {
   awayTeamId   String
   awayTeam     Team       @relation("AwayTeam", fields: [awayTeamId], references: [id])
   scheduledAt  DateTime
-  court        String?    // e.g. "Court 1 (Left Side) - 6:30"
-  week         Int?       // regular season week number; null for playoffs
+  court        String?
+  week         Int?
   isPlayoff    Boolean    @default(false)
-  playoffRound Int?       // 1, 2, or 3
+  playoffRound Int?
   status       GameStatus @default(SCHEDULED)
   homeScore    Int        @default(0)
   awayScore    Int        @default(0)
@@ -135,7 +130,7 @@ model GameStat {
   blocks          Int @default(0)
   steals          Int @default(0)
   turnovers       Int @default(0)
-  fouls           Int? // nullable — not tracked in all historical games
+  fouls           Int?
 
   @@unique([gameId, playerId])
 }
@@ -147,7 +142,6 @@ model SessionStat {
   playerId  String
   player    Player  @relation(fields: [playerId], references: [id])
 
-  // Aggregated after each game is finalized
   gamesPlayed     Int @default(0)
   fgMade          Int @default(0)
   fgAttempted     Int @default(0)
@@ -161,20 +155,19 @@ model SessionStat {
   blocks          Int @default(0)
   steals          Int @default(0)
   turnovers       Int @default(0)
-  fouls           Int? // nullable — not tracked in all historical sessions
+  fouls           Int?
 
   @@unique([sessionId, playerId])
 }
 
-// P2 — Sub list for a session. Admin editable, readable by admins + captains.
 model SubPlayer {
   id          String  @id @default(cuid())
   sessionId   String
   session     Session @relation(fields: [sessionId], references: [id])
   name        String
-  position    String? // e.g. "G", "F", "C", "G/F"
-  contactInfo String? // phone number
-  notes       String? // e.g. "Cooper recommendation"
+  position    String?
+  contactInfo String?
+  notes       String?
   isAvailable Boolean @default(true)
 
   @@unique([sessionId, name])
@@ -185,7 +178,6 @@ model CareerStat {
   playerId String @unique
   player   Player @relation(fields: [playerId], references: [id])
 
-  // Aggregated across all sessions — recomputed when a session is finalized
   sessionsPlayed  Int @default(0)
   gamesPlayed     Int @default(0)
   fgMade          Int @default(0)
@@ -200,5 +192,5 @@ model CareerStat {
   blocks          Int @default(0)
   steals          Int @default(0)
   turnovers       Int @default(0)
-  fouls           Int? // nullable — not tracked in all historical sessions
+  fouls           Int?
 }
