@@ -41,7 +41,7 @@ async function getBoxScore(id: string) {
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────
 
-type StatRow = Awaited<ReturnType<typeof getBoxScore>>['homeStats'][number]
+type StatRow = NonNullable<Awaited<ReturnType<typeof getBoxScore>>>['homeStats'][number]
 
 function pct(made: number, att: number) {
   if (att === 0) return '—'
