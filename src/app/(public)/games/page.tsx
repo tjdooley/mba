@@ -99,7 +99,7 @@ export default async function SchedulePage() {
 }
 
 // Prisma returns Date objects which can't be passed to Client Components directly
-function serializeGame(g: Awaited<ReturnType<typeof getScheduleData>>['games'][number]) {
+function serializeGame(g: NonNullable<Awaited<ReturnType<typeof getScheduleData>>>['games'][number]) {
   return {
     id:            g.id,
     status:        g.status,
