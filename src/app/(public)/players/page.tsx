@@ -12,7 +12,7 @@ async function getPlayersData() {
   // All active players with their current session team (if any) and career stats
   const players = await prisma.player.findMany({
     where: { isActive: true },
-    orderBy: { displayName: 'asc' },
+    orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     include: {
       careerStats: true,
       teamRosters: {
@@ -128,7 +128,7 @@ export default async function PlayersPage() {
                 className="player-row"
               >
                 <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>
-                  {p.displayName}
+                  {p.firstName} {p.lastName}
                 </span>
                 <span style={{ fontSize: 13, color: 'var(--muted)' }}>
                   {currentTeam}

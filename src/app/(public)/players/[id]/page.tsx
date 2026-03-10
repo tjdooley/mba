@@ -75,8 +75,9 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
 
 // ─── PAGE ────────────────────────────────────────────────────────────────
 
-export default async function PlayerProfilePage({ params }: { params: { id: string } }) {
-  const player = await getPlayerData(params.id)
+export default async function PlayerProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const player = await getPlayerData(id)
   if (!player) notFound()
 
   const cs = player.careerStats

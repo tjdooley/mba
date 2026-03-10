@@ -211,8 +211,9 @@ function StatTable({
 
 // ─── PAGE ────────────────────────────────────────────────────────────────
 
-export default async function BoxScorePage({ params }: { params: { id: string } }) {
-  const data = await getBoxScore(params.id)
+export default async function BoxScorePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const data = await getBoxScore(id)
   if (!data) notFound()
 
   const { game, homeStats, awayStats } = data
