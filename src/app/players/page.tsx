@@ -1,0 +1,154 @@
+import { prisma } from '@/lib/prisma'
+import Link from 'next/link'
+
+// ─── DATA ────────────────────────────────────────────────────────────────
+
+async function getPlayersData() {
+  const session = await prisma.session.findFirst({
+    where: { isActive: true },
+    orderBy: { startDate: 'desc' },
+  })
+
+  // All active players with their current session team (if any) and career stats
+  const players = await prisma.player.findMany({
+    where: { isActive: true },
+    orderBy: { displayName: 'asc' },
+    include: {
+      careerStats: true,
+      teamRosters: {
+        where: session ? { team: { sessionId: session.id } } : undefined,
+        include: {
+          team: { include: { captain: { select: { displayName: true } } } },
+        },
+        take: 1,
+      },
+    },
+  })
+
+  return { players, session }
+}
+
+// ─── PAGE ────────────────────────────────────────────────────────────────
+
+export default async function PlayersPage() {
+  const { players, session } = await getPlayersData()
+
+  return (
+    <main>
+      {/* Hero */}
+      <div style={{
+        background: 'linear-gradient(180deg, #0f1620 0%, var(--dark) 100%)',
+        borderBottom: '1px solid var(--border)',
+        padding: '36px 24px 32px',
+      }}>
+        <div style={{ maxWidth: 860, margin: '0 auto' }}>
+          <h1 style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 'clamp(36px, 6vw, 60px)',
+            letterSpacing: 3,
+            lineHeight: 1,
+            color: 'var(--text)',
+          }}>
+            Player{' '}
+            <span style={{
+              background: 'linear-gradient(135deg, #1db954, #2a8f8f)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}>
+              Directory
+            </span>
+          </h1>
+          <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 8, letterSpacing: '0.4px' }}>
+            {players.length} players · {session?.name ?? 'All time'}
+          </p>
+        </div>
+      </div>
+
+      {/* Player grid */}
+      <div style={{ maxWidth: 860, margin: '0 auto', padding: '28px 24px 60px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: 20, letterSpacing: 2, color: 'var(--text)' }}>
+            Roster
+          </span>
+          <span style={{ flex: 1, height: 1, background: 'var(--border)', display: 'block' }} />
+        </div>
+
+        <div style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 10,
+          overflow: 'hidden',
+        }}>
+          {/* Header */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 140px 60px 60px 60px',
+            padding: '7px 16px',
+            borderBottom: '1px solid var(--border)',
+          }}>
+            {['PLAYER', 'TEAM', 'GP', 'PPG', 'RPG'].map((h, i) => (
+              <span key={h} style={{
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: '1px',
+                color: 'var(--muted)',
+                textAlign: i >= 2 ? 'right' : 'left',
+              }}>
+                {h}
+              </span>
+            ))}
+          </div>
+
+          {/* Rows */}
+          {players.map((p, i) => {
+            const cs = p.careerStats
+            const ppg = cs && cs.gamesPlayed > 0
+              ? (cs.points / cs.gamesPlayed).toFixed(1)
+              : '—'
+            const rpg = cs && cs.gamesPlayed > 0
+              ? (cs.rebounds / cs.gamesPlayed).toFixed(1)
+              : '—'
+            const currentTeam = p.teamRosters[0]?.team.captain.displayName ?? '—'
+            const notLast = i < players.length - 1
+
+            return (
+              <Link
+                key={p.id}
+                href={`/players/${p.id}`}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 140px 60px 60px 60px',
+                  padding: '11px 16px',
+                  textDecoration: 'none',
+                  borderBottom: notLast ? '1px solid rgba(42,53,72,0.4)' : 'none',
+                  alignItems: 'center',
+                  transition: 'background 0.12s',
+                }}
+                className="player-row"
+              >
+                <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>
+                  {p.displayName}
+                </span>
+                <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                  {currentTeam}
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--muted)', textAlign: 'right' }}>
+                  {cs?.gamesPlayed ?? 0}
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text)', textAlign: 'right' }}>
+                  {ppg}
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text)', textAlign: 'right' }}>
+                  {rpg}
+                </span>
+              </Link>
+            )
+          })}
+        </div>
+      </div>
+
+      <style>{`.player-row:hover { background: rgba(255,255,255,0.025) !important; }`}</style>
+    </main>
+  )
+}
