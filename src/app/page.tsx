@@ -24,7 +24,7 @@ async function getStandingsData() {
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────
 
-function sortTeams(teams: Awaited<ReturnType<typeof getStandingsData>>['teams']) {
+function sortTeams(teams: NonNullable<Awaited<ReturnType<typeof getStandingsData>>>['teams']) {
   return [...teams].sort((a, b) => {
     if (b.wins !== a.wins) return b.wins - a.wins
     return b.pointDifferential - a.pointDifferential
