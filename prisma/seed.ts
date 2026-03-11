@@ -60,7 +60,7 @@ function parseTeamGames(ws: XLSX.WorkSheet): GameBlock[] {
       threesAttempted: safeInt(row[6]),
       ftMade: safeInt(row[8]),
       ftAttempted: safeInt(row[9]),
-      points: safeInt(row[11]),
+      points: (safeInt(row[2]) - safeInt(row[5])) * 2 + safeInt(row[5]) * 3 + safeInt(row[8]),
       rebounds: safeInt(row[12]),
       assists: safeInt(row[13]),
       blocks: safeInt(row[14]),
