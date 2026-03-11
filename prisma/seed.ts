@@ -133,6 +133,7 @@ const PLAYER_NAMES: Record<string, { firstName: string; lastName: string }> = {
   'Spencer':       { firstName: 'Spencer',     lastName: 'Brink' },
   'Jamie':         { firstName: 'Jamie',       lastName: 'Bush' },
   'BJ':            { firstName: 'BJ',          lastName: 'Cook' },
+  'Booch':         { firstName: 'Levon',       lastName: 'Crawford' },
   'Connor':        { firstName: 'Connor',      lastName: 'Morovits' },
   'Derek':         { firstName: 'Derek',       lastName: 'Dailey' },
   'Chandler':      { firstName: 'Chandler',    lastName: 'Diekvoss' },
@@ -149,7 +150,7 @@ const PLAYER_NAMES: Record<string, { firstName: string; lastName: string }> = {
   'Marty (sub)':   { firstName: 'Marty',       lastName: 'Sub' },      // guest sub, not Marty Petersen
   'Roy (sub)':     { firstName: 'Roy',         lastName: 'Sub' },      // guest sub, not Roy Hasenfratz
   'Cori':          { firstName: 'Cori',        lastName: 'Edmond' },
-  'Eric':          { firstName: 'Eric',        lastName: 'Eric' },     // one-time sub, last name unknown
+  'Eric':          { firstName: 'Eric',        lastName: '' },     // one-time sub, last name unknown
   'Sean F':        { firstName: 'Sean',        lastName: 'Fancsali' },
   'Mike F':        { firstName: 'Mike',        lastName: 'Fancsali' },
   'Dave F':        { firstName: 'Dave',        lastName: 'Filsinger' },
@@ -157,7 +158,7 @@ const PLAYER_NAMES: Record<string, { firstName: string; lastName: string }> = {
   'Andy Fox':      { firstName: 'Andy',        lastName: 'Fox' },
   'Gallman':       { firstName: 'Mike',        lastName: 'Gallman' },
   'Gabe':          { firstName: 'Gabe',        lastName: '' },         // last name unknown
-  'Liam (Justin)': { firstName: 'Liam',        lastName: '' },         // different from Liam Duffy, last name unknown
+  'Liam (sub)':    { firstName: 'Liam',        lastName: '' },         // different from Liam Duffy, last name unknown
   'Ricky':         { firstName: 'Rick',        lastName: 'Geisler' },
   'Zack':          { firstName: 'Zack',        lastName: 'Genthe' },
   'Gibbs':         { firstName: 'Brian',       lastName: 'Gibbs' },
@@ -224,7 +225,7 @@ const PLAYER_NAMES: Record<string, { firstName: string; lastName: string }> = {
   'Ty S':          { firstName: 'Ty',          lastName: 'Strangstalien' },
   'Jesse Temple':  { firstName: 'Jesse',       lastName: 'Temple' },
   'Donny':         { firstName: 'Donny',       lastName: 'Thompson' },
-  'Tianen':        { firstName: 'Tianen',      lastName: 'Tianen' },   // one-time sub, last name unknown
+  'Tianen':        { firstName: 'Tianen',      lastName: '' },   // one-time sub, last name unknown
   'Tordoff':       { firstName: 'Mitch',       lastName: 'Tordoff' },
   'Towns':         { firstName: 'Jason',       lastName: 'Towns' },
   'Valentyn':      { firstName: 'Brett',       lastName: 'Valentyn' },
@@ -283,7 +284,7 @@ const ALIASES: Record<string, string> = {
   'Nate Hobart':   'Hobert',
   'Nathan Hobert': 'Hobert',
   'Jaime Bush':    'Jamie',
-  'Liam (Justin)': 'Liam (Justin)', // different person from Liam
+  'Liam (Justin)': 'Liam (sub)',   // different person from Liam
   'Marty (sub)':   'Marty (sub)',   // different person from Marty Petersen
   'Roy (sub)':     'Roy (sub)',     // different person from Roy
   'Connor sub':    'Connor sub',    // different person from Connor Morovits
@@ -314,6 +315,19 @@ const ALIASES: Record<string, string> = {
   'Mitch Tordoff': 'Tordoff',
   'Jimmy West':    'Jimmy',
   'Dreher':        'Dreher',       // Derek Dreher (different from Derek Dailey)
+  'Trev Neal':        'Trev Neale',
+  'Trevor':           'Trev Neale',
+  'Neale':            'Trev Neale',
+  'TJ Dooley':        'TJ',
+  'Torin Hannah':     'Torin',
+  'Zach Klassy':      'Klassy',
+  'Marty Petersen':   'Marty',
+  'Ty Strangstalein': 'Ty S',
+  'Brian Parzych':    'Parzych',
+  'Jack Molloy':      'Molloy',
+  'Roy H':            'Roy',
+  'Tyler':            'Wedel',
+  'Pat':              'Pat Howe',
 }
 
 function canonical(raw: string): string {
@@ -322,7 +336,7 @@ function canonical(raw: string): string {
 
 function isSub(displayName: string): boolean {
   const lower = displayName.toLowerCase()
-  return lower.startsWith('sub') || lower.endsWith('sub') || lower.includes('(sub)') || displayName === 'Liam (Justin)'
+  return lower.startsWith('sub') || lower.endsWith('sub') || lower.includes('(sub)')
 }
 
 function getNames(displayName: string): { firstName: string; lastName: string } {
