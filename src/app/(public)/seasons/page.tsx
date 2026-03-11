@@ -160,7 +160,7 @@ function SeasonCard({ session, isCurrent }: { session: SessionWithTeams; isCurre
           </div>
         </div>
 
-        <div style={{ display: 'flex', align: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           {/* Champion badge */}
           {session.champion && (
             <div style={{
