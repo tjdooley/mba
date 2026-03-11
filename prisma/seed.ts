@@ -133,7 +133,6 @@ const PLAYER_NAMES: Record<string, { firstName: string; lastName: string }> = {
   'Spencer':       { firstName: 'Spencer',     lastName: 'Brink' },
   'Jamie':         { firstName: 'Jamie',       lastName: 'Bush' },
   'BJ':            { firstName: 'BJ',          lastName: 'Cook' },
-  'Booch':         { firstName: 'Levon',       lastName: 'Crawford' },
   'Connor':        { firstName: 'Connor',      lastName: 'Morovits' },
   'Derek':         { firstName: 'Derek',       lastName: 'Dailey' },
   'Chandler':      { firstName: 'Chandler',    lastName: 'Diekvoss' },
@@ -150,7 +149,7 @@ const PLAYER_NAMES: Record<string, { firstName: string; lastName: string }> = {
   'Marty (sub)':   { firstName: 'Marty',       lastName: 'Sub' },      // guest sub, not Marty Petersen
   'Roy (sub)':     { firstName: 'Roy',         lastName: 'Sub' },      // guest sub, not Roy Hasenfratz
   'Cori':          { firstName: 'Cori',        lastName: 'Edmond' },
-  'Eric':          { firstName: 'Eric',        lastName: '' },         // one-time sub, last name unknown
+  'Eric':          { firstName: 'Eric',        lastName: 'Eric' },     // one-time sub, last name unknown
   'Sean F':        { firstName: 'Sean',        lastName: 'Fancsali' },
   'Mike F':        { firstName: 'Mike',        lastName: 'Fancsali' },
   'Dave F':        { firstName: 'Dave',        lastName: 'Filsinger' },
@@ -158,7 +157,7 @@ const PLAYER_NAMES: Record<string, { firstName: string; lastName: string }> = {
   'Andy Fox':      { firstName: 'Andy',        lastName: 'Fox' },
   'Gallman':       { firstName: 'Mike',        lastName: 'Gallman' },
   'Gabe':          { firstName: 'Gabe',        lastName: '' },         // last name unknown
-  'Liam (sub)':    { firstName: 'Liam',        lastName: '' },         // different from Liam Duffy, last name unknown
+  'Liam (Justin)': { firstName: 'Liam',        lastName: '' },         // different from Liam Duffy, last name unknown
   'Ricky':         { firstName: 'Rick',        lastName: 'Geisler' },
   'Zack':          { firstName: 'Zack',        lastName: 'Genthe' },
   'Gibbs':         { firstName: 'Brian',       lastName: 'Gibbs' },
@@ -225,7 +224,7 @@ const PLAYER_NAMES: Record<string, { firstName: string; lastName: string }> = {
   'Ty S':          { firstName: 'Ty',          lastName: 'Strangstalien' },
   'Jesse Temple':  { firstName: 'Jesse',       lastName: 'Temple' },
   'Donny':         { firstName: 'Donny',       lastName: 'Thompson' },
-  'Tianen':        { firstName: 'Tianen',      lastName: '' },         // one-time sub, last name unknown
+  'Tianen':        { firstName: 'Tianen',      lastName: 'Tianen' },   // one-time sub, last name unknown
   'Tordoff':       { firstName: 'Mitch',       lastName: 'Tordoff' },
   'Towns':         { firstName: 'Jason',       lastName: 'Towns' },
   'Valentyn':      { firstName: 'Brett',       lastName: 'Valentyn' },
@@ -284,7 +283,7 @@ const ALIASES: Record<string, string> = {
   'Nate Hobart':   'Hobert',
   'Nathan Hobert': 'Hobert',
   'Jaime Bush':    'Jamie',
-  'Liam (Justin)': 'Liam (sub)',   // different person from Liam
+  'Liam (Justin)': 'Liam (Justin)', // different person from Liam
   'Marty (sub)':   'Marty (sub)',   // different person from Marty Petersen
   'Roy (sub)':     'Roy (sub)',     // different person from Roy
   'Connor sub':    'Connor sub',    // different person from Connor Morovits
@@ -315,20 +314,6 @@ const ALIASES: Record<string, string> = {
   'Mitch Tordoff': 'Tordoff',
   'Jimmy West':    'Jimmy',
   'Dreher':        'Dreher',       // Derek Dreher (different from Derek Dailey)
-  // New aliases added 2026-03-10
-  'Trev Neal':        'Trev Neale',    // typo variant
-  'Trevor':           'Trev Neale',    // Fall 2024 workbook
-  'Neale':            'Trev Neale',    // Fall 2024 captain sheet
-  'TJ Dooley':        'TJ',            // Fall 2025 workbook full name
-  'Torin Hannah':     'Torin',         // Fall 2025 workbook full name
-  'Zach Klassy':      'Klassy',        // Fall 2025 workbook full name
-  'Marty Petersen':   'Marty',         // Fall 2025 workbook full name
-  'Ty Strangstalein': 'Ty S',          // spelling variant
-  'Brian Parzych':    'Parzych',       // Fall 2025 workbook full name
-  'Jack Molloy':      'Molloy',        // Fall 2025 workbook full name
-  'Roy H':            'Roy',           // Fall 2025 workbook (distinguishes from Roy Boone)
-  'Tyler':            'Wedel',         // Spring 2023 captain = Tyler Wedel
-  'Pat':              'Pat Howe',      // Fall 2023 captain listed as just 'Pat'
 }
 
 function canonical(raw: string): string {
@@ -337,7 +322,7 @@ function canonical(raw: string): string {
 
 function isSub(displayName: string): boolean {
   const lower = displayName.toLowerCase()
-  return lower.startsWith('sub') || lower.endsWith('sub') || lower.includes('(sub)')
+  return lower.startsWith('sub') || lower.endsWith('sub') || lower.includes('(sub)') || displayName === 'Liam (Justin)'
 }
 
 function getNames(displayName: string): { firstName: string; lastName: string } {
@@ -1067,8 +1052,8 @@ async function main() {
   await prisma.careerStat.deleteMany()
   await prisma.sessionStat.deleteMany()
   await prisma.gameStat.deleteMany()
-  await prisma.teamRoster.deleteMany()
   await prisma.game.deleteMany()
+  await prisma.teamRoster.deleteMany()
   await prisma.team.deleteMany()
   await prisma.session.deleteMany()
   await prisma.player.deleteMany()
@@ -1155,7 +1140,7 @@ async function main() {
     ...Object.values(S25_ROSTERS),
     ...Object.values(FALL_ROSTERS), ...Object.values(SPRING_ROSTERS),
   ]
-  for (const players of allRosters) players.forEach(p => { if (!isSub(p)) allNames.add(p) })
+  for (const players of allRosters) players.forEach(p => { const cn = canonical(p); if (!isSub(cn)) allNames.add(cn) })
 
   const allStatMaps = [s23Stats, f23Stats, s24Stats, f24Stats, s25Stats, fallStats, springStats]
   for (const statMap of allStatMaps) {
@@ -1238,11 +1223,11 @@ async function main() {
   const s23TeamIds: Record<string, string> = {}
   for (const [cap, players] of Object.entries(S23_ROSTERS)) {
     const team = await prisma.team.create({
-      data: { sessionId: spring2023.id, captainId: playerIdMap[cap], division: S23_DIVISIONS[cap], ...S23_STANDINGS[cap] },
+      data: { sessionId: spring2023.id, captainId: playerIdMap[canonical(cap)], division: S23_DIVISIONS[cap], ...S23_STANDINGS[cap] },
     })
     s23TeamIds[cap] = team.id
     for (const pName of players) {
-      const pid = playerIdMap[pName]
+      const pid = playerIdMap[canonical(pName)]
       if (!pid) { console.warn(`⚠️  No player id for S23 roster: ${pName}`); continue }
       await prisma.teamRoster.create({ data: { teamId: team.id, playerId: pid, isSub: false } })
     }
@@ -1286,11 +1271,11 @@ async function main() {
   const f23TeamIds: Record<string, string> = {}
   for (const [cap, players] of Object.entries(F23_ROSTERS)) {
     const team = await prisma.team.create({
-      data: { sessionId: fall2023.id, captainId: playerIdMap[cap], division: F23_DIVISIONS[cap], ...F23_STANDINGS[cap] },
+      data: { sessionId: fall2023.id, captainId: playerIdMap[canonical(cap)], division: F23_DIVISIONS[cap], ...F23_STANDINGS[cap] },
     })
     f23TeamIds[cap] = team.id
     for (const pName of players) {
-      const pid = playerIdMap[pName]
+      const pid = playerIdMap[canonical(pName)]
       if (!pid) { console.warn(`⚠️  No player id for F23 roster: ${pName}`); continue }
       await prisma.teamRoster.create({ data: { teamId: team.id, playerId: pid, isSub: false } })
     }
@@ -1333,11 +1318,11 @@ async function main() {
   const s24TeamIds: Record<string, string> = {}
   for (const [cap, players] of Object.entries(S24_ROSTERS)) {
     const team = await prisma.team.create({
-      data: { sessionId: spring2024.id, captainId: playerIdMap[cap], division: S24_DIVISIONS[cap], ...S24_STANDINGS[cap] },
+      data: { sessionId: spring2024.id, captainId: playerIdMap[canonical(cap)], division: S24_DIVISIONS[cap], ...S24_STANDINGS[cap] },
     })
     s24TeamIds[cap] = team.id
     for (const pName of players) {
-      const pid = playerIdMap[pName]
+      const pid = playerIdMap[canonical(pName)]
       if (!pid) { console.warn(`⚠️  No player id for S24 roster: ${pName}`); continue }
       await prisma.teamRoster.create({ data: { teamId: team.id, playerId: pid, isSub: false } })
     }
@@ -1380,11 +1365,11 @@ async function main() {
   const f24TeamIds: Record<string, string> = {}
   for (const [cap, players] of Object.entries(F24_ROSTERS)) {
     const team = await prisma.team.create({
-      data: { sessionId: fall2024.id, captainId: playerIdMap[cap], division: F24_DIVISIONS[cap], ...F24_STANDINGS[cap] },
+      data: { sessionId: fall2024.id, captainId: playerIdMap[canonical(cap)], division: F24_DIVISIONS[cap], ...F24_STANDINGS[cap] },
     })
     f24TeamIds[cap] = team.id
     for (const pName of players) {
-      const pid = playerIdMap[pName]
+      const pid = playerIdMap[canonical(pName)]
       if (!pid) { console.warn(`⚠️  No player id for F24 roster: ${pName}`); continue }
       await prisma.teamRoster.create({ data: { teamId: team.id, playerId: pid, isSub: false } })
     }
@@ -1427,11 +1412,11 @@ async function main() {
   const s25TeamIds: Record<string, string> = {}
   for (const [cap, players] of Object.entries(S25_ROSTERS)) {
     const team = await prisma.team.create({
-      data: { sessionId: spring2025.id, captainId: playerIdMap[cap], division: S25_DIVISIONS[cap], ...S25_STANDINGS[cap] },
+      data: { sessionId: spring2025.id, captainId: playerIdMap[canonical(cap)], division: S25_DIVISIONS[cap], ...S25_STANDINGS[cap] },
     })
     s25TeamIds[cap] = team.id
     for (const pName of players) {
-      const pid = playerIdMap[pName]
+      const pid = playerIdMap[canonical(pName)]
       if (!pid) { console.warn(`⚠️  No player id for S25 roster: ${pName}`); continue }
       await prisma.teamRoster.create({ data: { teamId: team.id, playerId: pid, isSub: false } })
     }
@@ -1477,14 +1462,14 @@ async function main() {
     const team = await prisma.team.create({
       data: {
         sessionId: fall2025.id,
-        captainId: playerIdMap[cap],
+        captainId: playerIdMap[canonical(cap)],
         division: FALL_DIVISIONS[cap],
         ...FALL_STANDINGS[cap],
       },
     })
     fallTeamIds[cap] = team.id
     for (const pName of players) {
-      const pid = playerIdMap[pName]
+      const pid = playerIdMap[canonical(pName)]
       if (!pid) { console.warn(`⚠️  No player id for Fall roster: ${pName}`); continue }
       await prisma.teamRoster.create({ data: { teamId: team.id, playerId: pid, isSub: false } })
     }
@@ -1534,14 +1519,14 @@ async function main() {
     const team = await prisma.team.create({
       data: {
         sessionId: spring2026.id,
-        captainId: playerIdMap[cap],
+        captainId: playerIdMap[canonical(cap)],
         division: SPRING_DIVISIONS[cap],
         ...SPRING_STANDINGS[cap],
       },
     })
     springTeamIds[cap] = team.id
     for (const pName of players) {
-      const pid = playerIdMap[pName]
+      const pid = playerIdMap[canonical(pName)]
       if (!pid) { console.warn(`⚠️  No player id for Spring roster: ${pName}`); continue }
       await prisma.teamRoster.create({ data: { teamId: team.id, playerId: pid, isSub: false } })
     }
