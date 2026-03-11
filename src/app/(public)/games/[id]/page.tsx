@@ -20,21 +20,9 @@ async function getBoxScore(id: string) {
 
   if (!game) return null
 
-  // Split stats by team via TeamRoster lookup
-  const homeRoster = await prisma.teamRoster.findMany({
-    where: { teamId: game.homeTeamId },
-    select: { playerId: true },
-  })
-  const awayRoster = await prisma.teamRoster.findMany({
-    where: { teamId: game.awayTeamId },
-    select: { playerId: true },
-  })
-
-  const homePlayerIds = new Set(homeRoster.map((r) => r.playerId))
-  const awayPlayerIds = new Set(awayRoster.map((r) => r.playerId))
-
-  const homeStats = game.gameStats.filter((s) => homePlayerIds.has(s.playerId))
-  const awayStats = game.gameStats.filter((s) => awayPlayerIds.has(s.playerId))
+  // Split stats by teamId — works correctly for subs too
+  const homeStats = game.gameStats.filter((s) => s.teamId === game.homeTeamId)
+  const awayStats = game.gameStats.filter((s) => s.teamId === game.awayTeamId)
 
   return { game, homeStats, awayStats }
 }
@@ -79,117 +67,85 @@ function weekLabel(game: { week: number | null; isPlayoff: boolean; playoffRound
 }
 
 function formatDate(d: Date) {
-  return new Date(d).toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-  })
+  return new Date(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 // ─── STAT TABLE ──────────────────────────────────────────────────────────
 
-const COLS = [
-  { key: 'player',          label: 'PLAYER',  align: 'left'  },
-  { key: 'fg',              label: 'FG',      align: 'right' },
-  { key: 'three',           label: '3PT',     align: 'right' },
-  { key: 'ft',              label: 'FT',      align: 'right' },
-  { key: 'points',          label: 'PTS',     align: 'right' },
-  { key: 'rebounds',        label: 'REB',     align: 'right' },
-  { key: 'assists',         label: 'AST',     align: 'right' },
-  { key: 'blocks',          label: 'BLK',     align: 'right' },
-  { key: 'steals',          label: 'STL',     align: 'right' },
-  { key: 'turnovers',       label: 'TO',      align: 'right' },
-]
-
-function StatTable({
-  stats,
-  teamName,
-  accentColor,
-}: {
+function StatTable({ stats, teamName, accentColor }: {
   stats: StatRow[]
   teamName: string
   accentColor: string
 }) {
   const tot = totals(stats)
 
-  const cellStyle = (align: string, bold = false, color?: string): React.CSSProperties => ({
-    padding: '9px 10px',
-    fontFamily: 'var(--font-mono)',
-    fontSize: 13,
-    textAlign: align as 'left' | 'right',
-    color: color ?? (bold ? 'var(--text)' : 'var(--text)'),
-    fontWeight: bold ? 700 : 400,
-    borderBottom: '1px solid rgba(42,53,72,0.4)',
-    whiteSpace: 'nowrap',
+  const thStyle: React.CSSProperties = {
+    fontSize: 10, fontWeight: 600, letterSpacing: '1px',
+    color: 'var(--muted)', padding: '7px 8px', textAlign: 'right',
+    borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap',
+  }
+  const cellStyle = (align: 'left' | 'right' = 'right'): React.CSSProperties => ({
+    fontFamily: 'var(--font-mono)', fontSize: 13,
+    color: 'var(--text)', padding: '10px 8px',
+    textAlign: align, borderBottom: '1px solid rgba(42,53,72,0.4)',
   })
 
   return (
-    <div style={{
-      background: 'var(--surface)',
-      border: '1px solid var(--border)',
-      borderRadius: 10,
-      overflow: 'hidden',
-      marginBottom: 20,
-    }}>
-      {/* Team header */}
+    <div style={{ marginBottom: 28 }}>
       <div style={{
-        padding: '10px 14px',
-        borderBottom: '1px solid var(--border)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        fontSize: 11,
-        fontWeight: 700,
-        letterSpacing: '1.5px',
-        textTransform: 'uppercase',
+        display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
       }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%', background: accentColor, display: 'inline-block' }} />
-        <span style={{ color: accentColor }}>{teamName}</span>
+        <span style={{
+          width: 8, height: 8, borderRadius: '50%',
+          background: accentColor, display: 'inline-block', flexShrink: 0,
+        }} />
+        <span style={{
+          fontFamily: 'var(--font-display)', fontSize: 18,
+          letterSpacing: 2, color: 'var(--text)',
+        }}>
+          {teamName}
+        </span>
       </div>
 
-      {/* Scrollable table */}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 580 }}>
+      <div style={{ overflowX: 'auto', borderRadius: 8, border: '1px solid var(--border)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>
           <thead>
-            <tr style={{ background: 'rgba(0,0,0,0.2)' }}>
-              {COLS.map((c) => (
-                <th key={c.key} style={{
-                  padding: '7px 10px',
-                  fontSize: 10,
-                  fontWeight: 600,
-                  letterSpacing: '1px',
-                  textTransform: 'uppercase',
-                  color: 'var(--muted)',
-                  textAlign: c.align as 'left' | 'right',
-                  borderBottom: '1px solid var(--border)',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {c.label}
-                </th>
-              ))}
+            <tr style={{ background: 'rgba(0,0,0,0.3)' }}>
+              <th style={{ ...thStyle, textAlign: 'left', paddingLeft: 16 }}>PLAYER</th>
+              <th style={thStyle}>FG</th>
+              <th style={thStyle}>3PT</th>
+              <th style={thStyle}>FT</th>
+              <th style={{ ...thStyle, color: 'var(--green)' }}>PTS</th>
+              <th style={thStyle}>REB</th>
+              <th style={thStyle}>AST</th>
+              <th style={thStyle}>BLK</th>
+              <th style={thStyle}>STL</th>
+              <th style={{ ...thStyle, paddingRight: 16 }}>TO</th>
             </tr>
           </thead>
           <tbody>
             {stats.map((s) => (
-              <tr key={s.id} style={{ transition: 'background 0.1s' }} className="stat-row">
-                <td style={{ ...cellStyle('left'), fontFamily: 'var(--font-body)', fontWeight: 500 }}>
-                  <Link href={`/players/${s.playerId}`} style={{ color: 'var(--text)', textDecoration: 'none' }}>
+              <tr key={s.id} className="stat-row">
+                <td style={{ ...cellStyle('left'), paddingLeft: 16, fontFamily: 'var(--font-body)', fontWeight: 600 }}>
+                  <Link href={`/players/${s.player.id}`} style={{ color: 'var(--text)', textDecoration: 'none' }}>
                     {s.player.displayName}
                   </Link>
                 </td>
-                <td style={cellStyle('right')}>{s.fgMade}/{s.fgAttempted}</td>
-                <td style={cellStyle('right')}>{s.threesMade}/{s.threesAttempted}</td>
-                <td style={cellStyle('right')}>{s.ftMade}/{s.ftAttempted}</td>
-                <td style={{ ...cellStyle('right'), color: 'var(--green)', fontWeight: 700 }}>{s.points}</td>
-                <td style={cellStyle('right')}>{s.rebounds}</td>
-                <td style={cellStyle('right')}>{s.assists}</td>
-                <td style={cellStyle('right')}>{s.blocks}</td>
-                <td style={cellStyle('right')}>{s.steals}</td>
-                <td style={{ ...cellStyle('right'), color: s.turnovers >= 4 ? 'var(--red)' : 'var(--text)' }}>{s.turnovers}</td>
+                <td style={cellStyle()}>{s.fgMade}/{s.fgAttempted}</td>
+                <td style={cellStyle()}>{s.threesMade}/{s.threesAttempted}</td>
+                <td style={cellStyle()}>{s.ftMade}/{s.ftAttempted}</td>
+                <td style={{ ...cellStyle(), color: 'var(--green)', fontWeight: 600 }}>{s.points}</td>
+                <td style={cellStyle()}>{s.rebounds}</td>
+                <td style={cellStyle()}>{s.assists}</td>
+                <td style={cellStyle()}>{s.blocks}</td>
+                <td style={cellStyle()}>{s.steals}</td>
+                <td style={{ ...cellStyle(), paddingRight: 16, color: s.turnovers >= 4 ? 'var(--red)' : 'var(--text)' }}>{s.turnovers}</td>
               </tr>
             ))}
 
             {/* Totals row */}
             <tr style={{ background: 'rgba(0,0,0,0.2)' }}>
-              <td style={{ ...cellStyle('left'), fontFamily: 'var(--font-body)', fontWeight: 700, color: 'var(--muted)', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', borderBottom: 'none' }}>
+              <td style={{ ...cellStyle('left'), fontFamily: 'var(--font-body)', fontWeight: 700, color: 'var(--muted)', fontSize: 11, letterSpacing: '1px', textTransform: 'uppercase', borderBottom: 'none', paddingLeft: 16 }}>
                 Team
               </td>
               <td style={{ ...cellStyle('right'), fontWeight: 700, borderBottom: 'none' }}>{tot.fgMade}/{tot.fgAttempted}</td>
@@ -200,7 +156,7 @@ function StatTable({
               <td style={{ ...cellStyle('right'), fontWeight: 700, borderBottom: 'none' }}>{tot.assists}</td>
               <td style={{ ...cellStyle('right'), fontWeight: 700, borderBottom: 'none' }}>{tot.blocks}</td>
               <td style={{ ...cellStyle('right'), fontWeight: 700, borderBottom: 'none' }}>{tot.steals}</td>
-              <td style={{ ...cellStyle('right'), fontWeight: 700, borderBottom: 'none' }}>{tot.turnovers}</td>
+              <td style={{ ...cellStyle('right'), fontWeight: 700, borderBottom: 'none', paddingRight: 16 }}>{tot.turnovers}</td>
             </tr>
           </tbody>
         </table>
@@ -232,113 +188,64 @@ export default async function BoxScorePage({ params }: { params: Promise<{ id: s
           padding: '36px 24px 32px',
         }}>
           <div style={{ maxWidth: 860, margin: '0 auto' }}>
+
             {/* Breadcrumb */}
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 20 }}>
               <Link href="/games" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Schedule</Link>
               <span style={{ margin: '0 6px' }}>›</span>
-              <span>{game.session.name} · {weekLabel(game)}</span>
+              <span>{game.homeTeam.captain.displayName} vs {game.awayTeam.captain.displayName}</span>
             </div>
 
-            {/* Score */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr auto 1fr',
-              alignItems: 'center',
-              gap: 16,
-            }}>
-              {/* Home */}
-              <div>
+            {/* Score display */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
+              <div style={{ textAlign: 'center', minWidth: 120 }}>
                 <div style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '1.5px',
-                  textTransform: 'uppercase',
-                  color: 'var(--muted)',
-                  marginBottom: 6,
-                }}>
-                  Home
-                </div>
-                <div style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: 'clamp(28px, 5vw, 48px)',
-                  letterSpacing: 2,
-                  lineHeight: 1,
-                  color: isFinal && homeWon ? 'var(--green)' : 'var(--text)',
+                  fontFamily: 'var(--font-display)', fontSize: 'clamp(20px, 4vw, 32px)',
+                  letterSpacing: 2, color: homeWon ? 'var(--text)' : 'var(--muted)',
                 }}>
                   {game.homeTeam.captain.displayName}
                 </div>
+                <div style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 'clamp(48px, 8vw, 72px)',
+                  fontWeight: 500, lineHeight: 1, color: homeWon ? 'var(--green)' : 'var(--text)',
+                }}>
+                  {game.homeScore}
+                </div>
               </div>
 
-              {/* Score center */}
-              <div style={{ textAlign: 'center' }}>
-                {isFinal ? (
-                  <>
-                    <div style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: 'clamp(32px, 6vw, 56px)',
-                      letterSpacing: 4,
-                      lineHeight: 1,
-                    }}>
-                      <span style={{ color: homeWon ? 'var(--green)' : 'var(--muted)' }}>{game.homeScore}</span>
-                      <span style={{ color: 'var(--border)', margin: '0 8px', fontSize: '0.6em' }}>–</span>
-                      <span style={{ color: !homeWon ? 'var(--green)' : 'var(--muted)' }}>{game.awayScore}</span>
-                    </div>
-                    <div style={{
-                      marginTop: 6,
-                      fontSize: 10,
-                      fontWeight: 700,
-                      letterSpacing: '1.5px',
-                      textTransform: 'uppercase',
-                      color: 'var(--green)',
-                      background: 'rgba(29,185,84,0.1)',
-                      border: '1px solid rgba(29,185,84,0.2)',
-                      borderRadius: 4,
-                      padding: '2px 8px',
-                      display: 'inline-block',
-                    }}>
-                      Final
-                    </div>
-                  </>
-                ) : (
+              <div style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 14 }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, letterSpacing: 2 }}>VS</div>
+                {isFinal && (
                   <div style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: 28,
-                    letterSpacing: 3,
-                    color: 'var(--muted)',
+                    marginTop: 4, fontSize: 10, fontWeight: 700, letterSpacing: '1.5px',
+                    textTransform: 'uppercase', color: 'var(--green)',
                   }}>
-                    VS
+                    Final
                   </div>
                 )}
               </div>
 
-              {/* Away */}
-              <div style={{ textAlign: 'right' }}>
+              <div style={{ textAlign: 'center', minWidth: 120 }}>
                 <div style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '1.5px',
-                  textTransform: 'uppercase',
-                  color: 'var(--muted)',
-                  marginBottom: 6,
-                }}>
-                  Away
-                </div>
-                <div style={{
-                  fontFamily: 'var(--font-display)',
-                  fontSize: 'clamp(28px, 5vw, 48px)',
-                  letterSpacing: 2,
-                  lineHeight: 1,
-                  color: isFinal && !homeWon ? 'var(--green)' : 'var(--text)',
+                  fontFamily: 'var(--font-display)', fontSize: 'clamp(20px, 4vw, 32px)',
+                  letterSpacing: 2, color: !homeWon ? 'var(--text)' : 'var(--muted)',
                 }}>
                   {game.awayTeam.captain.displayName}
+                </div>
+                <div style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 'clamp(48px, 8vw, 72px)',
+                  fontWeight: 500, lineHeight: 1, color: !homeWon ? 'var(--green)' : 'var(--text)',
+                }}>
+                  {game.awayScore}
                 </div>
               </div>
             </div>
 
             {/* Meta */}
             <div style={{ marginTop: 16, fontSize: 12, color: 'var(--muted)' }}>
-              {formatDate(game.scheduledAt)}
+              {game.session.name} · {weekLabel(game)}
               {game.court && <span> · {game.court}</span>}
+              <span> · {formatDate(game.scheduledAt)}</span>
             </div>
           </div>
         </div>

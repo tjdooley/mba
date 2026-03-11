@@ -1179,7 +1179,7 @@ async function main() {
   console.log(`✅ Created ${allNames.size} players`)
 
   // ---- Helper: insert game stats ----
-  async function insertGameStats(gameId: string, block: GameBlock) {
+  async function insertGameStats(gameId: string, teamId: string, block: GameBlock) {
     for (const p of block.players) {
       const cname = canonical(p.name)
       const pid = playerIdMap[cname]
@@ -1188,7 +1188,7 @@ async function main() {
       if (exists) continue
       await prisma.gameStat.create({
         data: {
-          gameId, playerId: pid,
+          gameId, teamId, playerId: pid,
           fgMade: p.fgMade, fgAttempted: p.fgAttempted,
           threesMade: p.threesMade, threesAttempted: p.threesAttempted,
           ftMade: p.ftMade, ftAttempted: p.ftAttempted,
@@ -1263,8 +1263,8 @@ async function main() {
       if (g.homeScore == null) continue
       const homeBlock = s23Stats[g.home]?.find(b => b.gameNum === round.week)
       const awayBlock = s23Stats[g.away]?.find(b => b.gameNum === round.week)
-      if (homeBlock) await insertGameStats(game.id, homeBlock)
-      if (awayBlock) await insertGameStats(game.id, awayBlock)
+      if (homeBlock) await insertGameStats(game.id, game.homeTeamId, homeBlock)
+      if (awayBlock) await insertGameStats(game.id, game.awayTeamId, awayBlock)
     }
   }
   console.log('✅ Spring 2023 games + stats')
@@ -1310,8 +1310,8 @@ async function main() {
       if (g.homeScore == null) continue
       const homeBlock = f23Stats[g.home]?.find(b => b.gameNum === round.week)
       const awayBlock = f23Stats[g.away]?.find(b => b.gameNum === round.week)
-      if (homeBlock) await insertGameStats(game.id, homeBlock)
-      if (awayBlock) await insertGameStats(game.id, awayBlock)
+      if (homeBlock) await insertGameStats(game.id, game.homeTeamId, homeBlock)
+      if (awayBlock) await insertGameStats(game.id, game.awayTeamId, awayBlock)
     }
   }
   console.log('✅ Fall 2023 games + stats')
@@ -1357,8 +1357,8 @@ async function main() {
       if (g.homeScore == null) continue
       const homeBlock = s24Stats[g.home]?.find(b => b.gameNum === round.week)
       const awayBlock = s24Stats[g.away]?.find(b => b.gameNum === round.week)
-      if (homeBlock) await insertGameStats(game.id, homeBlock)
-      if (awayBlock) await insertGameStats(game.id, awayBlock)
+      if (homeBlock) await insertGameStats(game.id, game.homeTeamId, homeBlock)
+      if (awayBlock) await insertGameStats(game.id, game.awayTeamId, awayBlock)
     }
   }
   console.log('✅ Spring 2024 games + stats')
@@ -1404,8 +1404,8 @@ async function main() {
       if (g.homeScore == null) continue
       const homeBlock = f24Stats[g.home]?.find(b => b.gameNum === round.week)
       const awayBlock = f24Stats[g.away]?.find(b => b.gameNum === round.week)
-      if (homeBlock) await insertGameStats(game.id, homeBlock)
-      if (awayBlock) await insertGameStats(game.id, awayBlock)
+      if (homeBlock) await insertGameStats(game.id, game.homeTeamId, homeBlock)
+      if (awayBlock) await insertGameStats(game.id, game.awayTeamId, awayBlock)
     }
   }
   console.log('✅ Fall 2024 games + stats')
@@ -1452,8 +1452,8 @@ async function main() {
       if (g.homeScore == null) continue
       const homeBlock = s25Stats[g.home]?.find(b => b.gameNum === round.week)
       const awayBlock = s25Stats[g.away]?.find(b => b.gameNum === round.week)
-      if (homeBlock) await insertGameStats(game.id, homeBlock)
-      if (awayBlock) await insertGameStats(game.id, awayBlock)
+      if (homeBlock) await insertGameStats(game.id, game.homeTeamId, homeBlock)
+      if (awayBlock) await insertGameStats(game.id, game.awayTeamId, awayBlock)
     }
   }
   console.log('✅ Spring 2025 games + stats')
@@ -1508,8 +1508,8 @@ async function main() {
       if (g.homeScore == null) continue
       const homeBlock = fallStats[g.home]?.find(b => b.gameNum === round.week)
       const awayBlock = fallStats[g.away]?.find(b => b.gameNum === round.week)
-      if (homeBlock) await insertGameStats(game.id, homeBlock)
-      if (awayBlock) await insertGameStats(game.id, awayBlock)
+      if (homeBlock) await insertGameStats(game.id, game.homeTeamId, homeBlock)
+      if (awayBlock) await insertGameStats(game.id, game.awayTeamId, awayBlock)
     }
   }
   console.log('✅ Fall 2025 games + stats')
@@ -1566,8 +1566,8 @@ async function main() {
       if (!isCompleted) continue
       const homeBlock = springStats[g.home]?.find(b => b.gameNum === round.week)
       const awayBlock = springStats[g.away]?.find(b => b.gameNum === round.week)
-      if (homeBlock) await insertGameStats(game.id, homeBlock)
-      if (awayBlock) await insertGameStats(game.id, awayBlock)
+      if (homeBlock) await insertGameStats(game.id, game.homeTeamId, homeBlock)
+      if (awayBlock) await insertGameStats(game.id, game.awayTeamId, awayBlock)
     }
   }
   console.log('✅ Spring 2026 games + stats')

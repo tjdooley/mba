@@ -60,9 +60,10 @@ model Team {
   pointDifferential Int @default(0)
 
   roster      TeamRoster[]
-  homeGames   Game[]    @relation("HomeTeam")
-  awayGames   Game[]    @relation("AwayTeam")
-  championOf  Session[] @relation("SessionChampion")
+  homeGames   Game[]     @relation("HomeTeam")
+  awayGames   Game[]     @relation("AwayTeam")
+  championOf  Session[]  @relation("SessionChampion")
+  gameStats   GameStat[]
 
   @@unique([sessionId, captainId])
 }
@@ -115,6 +116,8 @@ model GameStat {
   id       String @id @default(cuid())
   gameId   String
   game     Game   @relation(fields: [gameId], references: [id])
+  teamId   String
+  team     Team   @relation(fields: [teamId], references: [id])
   playerId String
   player   Player @relation(fields: [playerId], references: [id])
 
