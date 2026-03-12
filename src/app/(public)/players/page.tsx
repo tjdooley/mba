@@ -114,8 +114,8 @@ function PlayerTable({ players, showTeam }: { players: Player[]; showTeam: boole
 export default async function PlayersPage() {
   const { players, session } = await getPlayersData()
 
-  const activePlayers   = players.filter((p) => p.isActive)
-  const inactivePlayers = players.filter((p) => !p.isActive)
+  const activePlayers   = players.filter((p) => p.teamRosters.length > 0)
+  const inactivePlayers = players.filter((p) => p.teamRosters.length === 0)
 
   return (
     <main>

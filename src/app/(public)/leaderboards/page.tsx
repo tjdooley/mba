@@ -21,7 +21,9 @@ async function getLeaderboardData(sessionId?: string) {
     where: {
       sessionId: session.id,
       gamesPlayed: { gt: 0 },
-      player: { isActive: true },
+      player: {
+        teamRosters: { some: { team: { sessionId: session.id } } },
+      },
     },
     include: {
       player: { select: { id: true, displayName: true } },
