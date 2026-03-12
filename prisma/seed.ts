@@ -1,1612 +1,988 @@
-import { PrismaClient, Division, SessionPeriod, GameStatus } from '../src/generated/prisma/client'
-import { PrismaPg } from '@prisma/adapter-pg'
-import * as XLSX from 'xlsx'
-import 'dotenv/config'
+/**
+ * prisma/seed.ts
+ * MBA Basketball League — Historical Data Seed
+ * Covers: Spring 2023, Fall 2023, Spring 2024, Fall 2024, Spring 2025, Fall 2025, Spring 2026
+ *
+ * Run with: npx prisma db seed
+ * Stat + schedule workbook files must exist in prisma/data/
+ */
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
-const prisma = new PrismaClient({ adapter })
+import { PrismaClient, Division, SessionPeriod, GameStatus } from "@/generated/prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import * as XLSX from "xlsx";
+import * as path from "path";
+
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const prisma = new PrismaClient({ adapter });
+
+const DATA_DIR = path.join(__dirname, "data");
 
 // ---------------------------------------------------------------------------
-// Helpers
+// ALIASES — raw name from stat sheet → canonical displayName
+// Per-sheet overrides handled via SHEET_OVERRIDES below
+// ---------------------------------------------------------------------------
+const ALIASES: Record<string, string | null> = {
+  "Sean F": "Sean F",
+  Nate: "Lewis", Lewis: "Lewis", "Nate Lewis": "Lewis",
+  Reetz: "Reetz",
+  Gibbs: "Gibbs",
+  TJ: "TJ",
+  Sir: "Sir",
+  Vos: "Vos",
+  Ziemer: "Ziemer",
+  "Nate Ray": "Nate Ray",
+  Tordoff: "Mitch", Mitch: "Mitch",
+  Akim: "Akim",
+  Karls: "Karls",
+  Brandt: "Klayton", Klayton: "Klayton",
+  Connor: "Connor",
+  "Sam Wilk": "Sam Wilk", Wilkinson: "Sam Wilk",
+  Kahl: "Kahl", "Don Kahl": "Kahl",
+  Liam: "Liam",
+  Plotkin: "Plotkin",
+  Towns: "Towns",
+  "Sam P": "Sam P", "San P": "Sam P", "Sam Pettegrew": "Sam P",
+  Booch: "Booch",
+  "Tyler O": "Tyler Olson", "Tyler Olson": "Tyler Olson", Olson: "Tyler Olson",
+  Jimmy: "Jimmy",
+  BJ: "BJ",
+  Roy: "Roy", "Roy H": "Roy",
+  Armga: "Armga",
+  Minnerly: "Minnerly",
+  "Lefty Andy": "Lefty Andy",
+  Scotty: "Scotty", "Scotty Ripp": "Scotty",
+  Trev: "Trev", "Trev Neale": "Trev", Neale: "Trev",
+  Noah: "Noah",
+  Detric: "Detric",
+  Tim: "Tim", "Tim Russell": "Tim", Timmy: "Tim",
+  "Matt S": "Savatski", Savatski: "Savatski",
+  "Don T": "Don T", "Don Thompson": "Don T", Donny: "Don T",
+  "Donny (sub)": "Don T", "Donny(sub)": "Don T", Don: "Don T",
+  Hertz: "Hertz",
+  Watts: "Watts",
+  Rocky: "Rocky", "Rocky So": "Rocky", "Rocky/Mike": "Rocky",
+  Les: "Les Wilk", "Les Wilk": "Les Wilk",
+  Gallman: "Gallman",
+  Macon: "Macon",
+  Wedel: "Wedel", "Tyler Wedel": "Wedel",
+  Cori: "Cori",
+  "Jake B": "Jake B",
+  Winsor: "Winsor", Winzor: "Winsor", Winz: "Winsor",
+  Chandler: "Chandler",
+  "Fast Pat": "Fast Pat",
+  "Dave F": "Dave F", Filsinger: "Dave F",
+  Pat: "Pat Howe", "Pat Howe": "Pat Howe",
+  "Roy Boone": "Roy Boone", Boone: "Roy Boone",
+  "Tall Matt": "Tall Matt",
+  "Mike Brand": "Mike Brand", Brand: "Mike Brand",
+  Kain: "Kain",
+  Justin: "Justin", "Liam (Justin)": "Justin",
+  "Alex Hade": "Alex Hade", Alex: "Alex Hade",
+  Carson: "Carson",
+  Spencer: "Spencer",
+  Kevin: "Kevin",
+  Zack: "Zack", Zach: "Zack",
+  Marty: "Marty",  // default = Marty Petersen; overridden per-sheet in FA24
+  Derek: "Derek", "Derek Dailey": "Derek", "Derek D (Sub)": "Derek",
+  Ricky: "Ricky",
+  Danny: "Danny",
+  "Ty Parman": "Ty Parman", Parman: "Ty Parman",
+  "Nate Hobart": "Hobert", Hobart: "Hobert", Hobert: "Hobert", "Nathan Hobert": "Hobert",
+  Siebert: "Siebert",
+  Shravan: "Shravan",
+  Johnny: "Johnny Plewa", "Johnny Plewa": "Johnny Plewa",
+  "Macon bro": "Johnny Plewa", "Brother Macon": "Johnny Plewa",
+  Paul: "Paul Wedel",
+  Dreher: "Dreher",
+  Staege: "Staege", Stege: "Staege", "J Staege": "Staege",
+  "Ryan Staege": "Ryan Staege",
+  Volt: "Volt", Meech: "Meech", Murph: "Murph", Willie: "Willie",
+  Haag: "Haag", Ritzy: "Ritzy", Chazz: "Chazz", Gus: "Gus", Dillon: "Dillon",
+  "Brian D": "Brian Donais", "Brian Donais": "Brian Donais", Donais: "Brian Donais",
+  Brandon: "Brandon Doll", "Brandon Doll": "Brandon Doll",
+  "Rob Duax": "Rob Duax", Duax: "Rob Duax", Rob: "Rob Duax",
+  "Mike Amend": "Mike Amend",
+  "Jamie Bush": "Jamie Bush", "Jaime Bush": "Jamie Bush", Jamie: "Jamie Bush",
+  Ponytail: "Gabe", Gabe: "Gabe",
+  "Alex Johnson": "Alex Johnson",
+  "Ty S": "Ty S",
+  Carter: "Carter",
+  "Nate Rohrer": "Nate Rohrer",
+  Julian: "Julian",
+  "Jeff Payton": "Jeff Payton",
+  "Andy Fox": "Andy Fox",
+  Jesse: "Jesse", "Jesse Temple": "Jesse",
+  Filip: "Filip",
+  Jesus: "Jesus",
+  "Justin Bomkamp": "Justin Bomkamp",
+  Ngijol: "Ngijol", "Ngijol Songolo": "Ngijol",
+  Tianen: "Tianen",
+  "Brett Wittchow": "Brett Wittchow",
+  "Sub (Ziemer)": "Unknown Sub (Sir, F24)",
+  "Connor sub": "Unknown Sub (Neale, F24)",
+  Crooks: "Crooks", Eric: "Eric",
+  "Mike F": "Mike F",
+  "Mike Y": "Younggren",
+  Valentyn: "Valentyn",
+  Molloy: "Molloy", "Jack Molloy": "Molloy", Jack: "Molloy",
+  Klassy: "Klassy", "Zach Klassy": "Klassy",
+  "Torin Hannah": "Torin", Torin: "Torin",
+  "Chase Kieler": "Chase", Chase: "Chase",
+  "Shane Kieler": "Shane", Shane: "Shane",
+  "Brian Parzych": "Parzych", Parzych: "Parzych",
+  Brent: "Brent",
+  "Jake S": "Jake S",
+  "Sam BZ": "Sam BZ",
+  "Marty Johnson": "Marty J",
+  Cooper: "Cooper",
+  Darren: "Darren", Simler: "Darren",
+  Younggren: "Younggren",
+  // Sub annotations in stat sheets — skip silently
+  "Marty (sub)": null,
+  "Roy (sub)": null,
+  "Don T (sub)": null,
+  "BJ (sub)": null,
+  "Tim (sub)": null,
+};
+
+// Per-sheet overrides applied AFTER global ALIASES
+const SHEET_OVERRIDES: Record<string, Record<string, Record<string, string>>> = {
+  FA24: {
+    TJ:    { Marty: "Marty J" }, // Marty Johnson subbing on TJ's sheet
+    Towns: { Marty: "Marty J" }, // Marty Johnson subbing on Towns' sheet
+    Akim:  { Marty: "Marty"   }, // Marty Petersen rostered on Akim's sheet
+  },
+  FA25: {
+    Brand:     { Staege: "Ryan Staege" }, // Ryan Staege rostered on Brand's team
+    "Nate Ray":{ Staege: "Staege", "J Staege": "Staege" }, // Jared Staege subbing
+  },
+};
+
+// ---------------------------------------------------------------------------
+// PLAYER_NAMES — canonical displayName → { firstName, lastName }
+// ---------------------------------------------------------------------------
+const PLAYER_NAMES: Record<string, { firstName: string; lastName: string }> = {
+  "Sean F":       { firstName: "Sean",       lastName: "Fancsali" },
+  Lewis:          { firstName: "Nate",       lastName: "Lewis" },
+  Reetz:          { firstName: "Jordan",     lastName: "Reetz" },
+  Gibbs:          { firstName: "Brian",      lastName: "Gibbs" },
+  TJ:             { firstName: "TJ",         lastName: "Dooley" },
+  Sir:            { firstName: "SirJeremy",  lastName: "Harrison" },
+  Vos:            { firstName: "Nathan",     lastName: "Vos" },
+  Ziemer:         { firstName: "Jason",      lastName: "Ziemer" },
+  "Nate Ray":     { firstName: "Nate",       lastName: "Ray" },
+  Mitch:          { firstName: "Mitch",      lastName: "Tordoff" },
+  Akim:           { firstName: "Johnny",     lastName: "Akim" },
+  Karls:          { firstName: "Matt",       lastName: "Karls" },
+  Klayton:        { firstName: "Klayton",    lastName: "Brandt" },
+  Connor:         { firstName: "Connor",     lastName: "Morovits" },
+  "Sam Wilk":     { firstName: "Sam",        lastName: "Wilkinson" },
+  Kahl:           { firstName: "Don",        lastName: "Kahl" },
+  Liam:           { firstName: "Liam",       lastName: "Duffy" },
+  Plotkin:        { firstName: "Brian",      lastName: "Plotkin" },
+  Towns:          { firstName: "Jason",      lastName: "Towns" },
+  "Sam P":        { firstName: "Sam",        lastName: "Pettegrew" },
+  Booch:          { firstName: "Levon",      lastName: "Crawford" },
+  "Tyler Olson":  { firstName: "Tyler",      lastName: "Olson" },
+  Jimmy:          { firstName: "Jim",        lastName: "West" },
+  BJ:             { firstName: "BJ",         lastName: "Cook" },
+  Roy:            { firstName: "Roy",        lastName: "Hasenfratz" },
+  Armga:          { firstName: "Austin",     lastName: "Armga" },
+  Minnerly:       { firstName: "Jeff",       lastName: "Minnerly" },
+  "Lefty Andy":   { firstName: "Andy",       lastName: "Hosking" },
+  Scotty:         { firstName: "Scott",      lastName: "Rippl" },
+  Trev:           { firstName: "Trevor",     lastName: "Neale" },
+  Noah:           { firstName: "Noah",       lastName: "Beck" },
+  Detric:         { firstName: "Detric",     lastName: "McCain" },
+  Tim:            { firstName: "Tim",        lastName: "Russell" },
+  Savatski:       { firstName: "Matt",       lastName: "Savatski" },
+  "Don T":        { firstName: "Don",        lastName: "Thompson" },
+  Hertz:          { firstName: "Sean",       lastName: "Hertz" },
+  Watts:          { firstName: "Dave",       lastName: "Watts" },
+  Rocky:          { firstName: "Rocky",      lastName: "So" },
+  "Les Wilk":     { firstName: "Les",        lastName: "Wilkinson" },
+  Gallman:        { firstName: "Mike",       lastName: "Gallman" },
+  Macon:          { firstName: "Macon",      lastName: "Plewa" },
+  Wedel:          { firstName: "Tyler",      lastName: "Wedel" },
+  Cori:           { firstName: "Cori",       lastName: "Edmond" },
+  "Jake B":       { firstName: "Jacob",      lastName: "Baryenbruch" },
+  Winsor:         { firstName: "Andy",       lastName: "Winsor" },
+  Chandler:       { firstName: "Chandler",   lastName: "Diekvoss" },
+  "Fast Pat":     { firstName: "Pat",        lastName: "Lagman" },
+  "Dave F":       { firstName: "David",      lastName: "Filsinger" },
+  "Pat Howe":     { firstName: "Pat",        lastName: "Howe" },
+  "Roy Boone":    { firstName: "Roy",        lastName: "Boone" },
+  "Tall Matt":    { firstName: "Matt",       lastName: "Nonemacher" },
+  "Mike Brand":   { firstName: "Mike",       lastName: "Brand" },
+  Kain:           { firstName: "Kain",       lastName: "Page" },
+  Justin:         { firstName: "Justin",     lastName: "Banzhaf" },
+  "Alex Hade":    { firstName: "Alex",       lastName: "Hade" },
+  Carson:         { firstName: "Carson",     lastName: "Aeberhard" },
+  Spencer:        { firstName: "Spencer",    lastName: "Brink" },
+  Kevin:          { firstName: "Kevin",      lastName: "Branch" },
+  Zack:           { firstName: "Zack",       lastName: "Genthe" },
+  Marty:          { firstName: "Marty",      lastName: "Petersen" },
+  Derek:          { firstName: "Derek",      lastName: "Dailey" },
+  Ricky:          { firstName: "Ricky",      lastName: "Geisler" },
+  Danny:          { firstName: "Danny",      lastName: "Koss" },
+  "Ty Parman":    { firstName: "Ty",         lastName: "Parman" },
+  Hobert:         { firstName: "Nathan",     lastName: "Hobert" },
+  Siebert:        { firstName: "Chris",      lastName: "Siebert" },
+  Shravan:        { firstName: "Shravan",    lastName: "Parman" },
+  "Johnny Plewa": { firstName: "Johnny",     lastName: "Plewa" },
+  "Paul Wedel":   { firstName: "Paul",       lastName: "Wedel" },
+  Dreher:         { firstName: "Derek",      lastName: "Dreher" },
+  Staege:         { firstName: "Jared",      lastName: "Staege" },
+  "Ryan Staege":  { firstName: "Ryan",       lastName: "Staege" },
+  Volt:           { firstName: "Andy",       lastName: "Voeltner" },
+  Meech:          { firstName: "Demetrious", lastName: "Boyd" },
+  Murph:          { firstName: "Murphy",     lastName: "Knepfel" },
+  Willie:         { firstName: "Willie",     lastName: "Nellen" },
+  Haag:           { firstName: "Nate",       lastName: "Haag" },
+  Ritzy:          { firstName: "Jason",      lastName: "Ritzenthaler" },
+  Chazz:          { firstName: "Chazz",      lastName: "Huston" },
+  Gus:            { firstName: "Mark",       lastName: "Gustavson" },
+  Dillon:         { firstName: "Dillon",     lastName: "Mezera" },
+  "Brian Donais": { firstName: "Brian",      lastName: "Donais" },
+  "Brandon Doll": { firstName: "Brandon",    lastName: "Doll" },
+  "Rob Duax":     { firstName: "Rob",        lastName: "Duax" },
+  "Mike Amend":   { firstName: "Mike",       lastName: "Amend" },
+  "Jamie Bush":   { firstName: "Jamie",      lastName: "Bush" },
+  Gabe:           { firstName: "Gabe",       lastName: "" },
+  "Alex Johnson": { firstName: "Alex",       lastName: "Johnson" },
+  "Ty S":         { firstName: "Ty",         lastName: "Strangstalien" },
+  Carter:         { firstName: "Carter",     lastName: "Voelker" },
+  "Nate Rohrer":  { firstName: "Nate",       lastName: "Rohrer" },
+  Julian:         { firstName: "Julian",     lastName: "Walters" },
+  "Jeff Payton":  { firstName: "Jeff",       lastName: "Payton" },
+  "Andy Fox":     { firstName: "Andy",       lastName: "Fox" },
+  Jesse:          { firstName: "Jesse",      lastName: "Temple" },
+  Filip:          { firstName: "Filip",      lastName: "" },
+  Jesus:          { firstName: "Jesus",      lastName: "Villagomez" },
+  "Justin Bomkamp": { firstName: "Justin",   lastName: "Bomkamp" },
+  Ngijol:         { firstName: "Ngijol",     lastName: "Songolo" },
+  Tianen:         { firstName: "Tianen",     lastName: "" },
+  "Brett Wittchow": { firstName: "Brett",    lastName: "Wittchow" },
+  "Unknown Sub (Sir, F24)":   { firstName: "Unknown", lastName: "Sub (Sir F24)" },
+  "Unknown Sub (Neale, F24)": { firstName: "Unknown", lastName: "Sub (Neale F24)" },
+  Crooks:         { firstName: "Andy",       lastName: "Crooks" },
+  Eric:           { firstName: "Eric",       lastName: "" },
+  "Mike F":       { firstName: "Mike",       lastName: "Fancsali" },
+  Younggren:      { firstName: "Michael",    lastName: "Younggren" },
+  Valentyn:       { firstName: "Brett",      lastName: "Valentyn" },
+  Molloy:         { firstName: "Jack",       lastName: "Molloy" },
+  Klassy:         { firstName: "Zach",       lastName: "Klassy" },
+  Torin:          { firstName: "Torin",      lastName: "Hannah" },
+  Chase:          { firstName: "Chase",      lastName: "Kieler" },
+  Shane:          { firstName: "Shane",      lastName: "Kieler" },
+  Parzych:        { firstName: "Brian",      lastName: "Parzych" },
+  Brent:          { firstName: "Brent",      lastName: "Perzentka" },
+  "Jake S":       { firstName: "Jake",       lastName: "Schroeckenthaler" },
+  "Sam BZ":       { firstName: "Sam",        lastName: "Ben-Zkiri" },
+  "Marty J":      { firstName: "Marty",      lastName: "Johnson" },
+  Cooper:         { firstName: "Cooper",     lastName: "Armstrong" },
+  Darren:         { firstName: "Darren",     lastName: "Simler" },
+};
+
+// ---------------------------------------------------------------------------
+// SCHEDULE ALIASES — raw name in workbook schedule → captain displayName
+// ---------------------------------------------------------------------------
+const SCHED_ALIASES: Record<string, string> = {
+  // SP23 short names used in schedule
+  Sam: "Sam P", Tyler: "Wedel",
+  // FA23
+  Don: "Don T", Pat: "Pat Howe",
+  // SP24
+  Tordoff: "Mitch",
+  // FA24 — prefixed with "Team "
+  "Team Neale": "Trev", "Team Akim": "Akim", "Team Towns": "Towns",
+  "Team Cooper": "Cooper", "Team Younngren": "Younggren",
+  "Team Younggren": "Younggren", "Team TJ": "TJ",
+  "Team Sir": "Sir", "Team Karls": "Karls",
+  // SP25
+  Donny: "Don T",
+  // SP26
+  Alex: "Alex Hade", Timmy: "Tim", Olson: "Tyler Olson",
+  // Already-canonical pass-throughs
+  "Sean F": "Sean F", Lewis: "Lewis", Ziemer: "Ziemer", Connor: "Connor",
+  Justin: "Justin", Danny: "Danny", Towns: "Towns", Gallman: "Gallman",
+  Roy: "Roy", BJ: "BJ", Ricky: "Ricky", Winsor: "Winsor",
+  Hertz: "Hertz", "Tyler Olson": "Tyler Olson", Wedel: "Wedel",
+  Mitch: "Mitch", TJ: "TJ", Sir: "Sir", Akim: "Akim",
+  Karls: "Karls", Cooper: "Cooper", Younggren: "Younggren",
+  Trev: "Trev", Plotkin: "Plotkin", "Dave F": "Dave F",
+  Cori: "Cori", "Tall Matt": "Tall Matt", "Don T": "Don T",
+  "Pat Howe": "Pat Howe", Brand: "Mike Brand", "Mike Brand": "Mike Brand",
+  Macon: "Macon", "Jake B": "Jake B", "Nate Ray": "Nate Ray",
+  Derek: "Derek", Zack: "Zack", "Alex Hade": "Alex Hade",
+  Tim: "Tim", "Sam P": "Sam P",
+};
+
+// All valid captain displayNames (used to filter schedule parsing artifacts)
+const ALL_CAPTAINS = new Set([
+  "Sean F","Lewis","Ziemer","Connor","Sam P","Wedel","Justin","Danny",
+  "Towns","Gallman","Don T","Roy","BJ","Ricky","Winsor","Pat Howe",
+  "Hertz","Mitch","Tyler Olson",
+  "Trev","Sir","Akim","TJ","Younggren","Karls","Cooper",
+  "Plotkin","Dave F","Cori","Tall Matt",
+  "Mike Brand","Macon","Jake B","Nate Ray",
+  "Derek","Zack","Alex Hade","Tim",
+]);
+
+// ---------------------------------------------------------------------------
+// SESSION DEFINITIONS
+// ---------------------------------------------------------------------------
+interface TeamDef {
+  sheet: string;           // stat workbook sheet name
+  captainDisplay: string;  // canonical displayName of captain
+  roster: string[];        // 5 non-captain players, canonical displayNames
+}
+
+interface SessionDef {
+  key: string;
+  name: string;
+  period: SessionPeriod;
+  year: number;
+  startDate: Date;
+  endDate: Date;
+  statFile: string;        // e.g. "Spring_2023_MBA_Stats.xlsx"
+  workbookFile: string;    // e.g. "2_MBA_Spring_2023_Workbook.xlsx"
+  scheduleSheet: string;   // sheet name within workbook
+  freehouse: TeamDef[];
+  delaneys: TeamDef[];
+}
+
+const SESSIONS: SessionDef[] = [
+  {
+    key: "SP23", name: "Spring 2023", period: "SPRING", year: 2023,
+    startDate: new Date("2023-02-19"), endDate: new Date("2023-05-07"),
+    statFile: "Spring_2023_MBA_Stats.xlsx",
+    workbookFile: "2_MBA_Spring_2023_Workbook.xlsx", scheduleSheet: "2023 Schedule",
+    freehouse: [
+      { sheet: "SeanF",  captainDisplay: "Sean F",  roster: ["Ngijol","Darren","Younggren","Cooper","Dave F"] },
+      { sheet: "Nate",   captainDisplay: "Lewis",   roster: ["Reetz","Gibbs","TJ","Sir","Vos"] },
+      { sheet: "Ziemer", captainDisplay: "Ziemer",  roster: ["Nate Ray","Mitch","Klayton","Akim","Karls"] },
+      { sheet: "Connor", captainDisplay: "Connor",  roster: ["Sam Wilk","Kahl","Liam","Plotkin","Towns"] },
+    ],
+    delaneys: [
+      { sheet: "SamP",   captainDisplay: "Sam P",   roster: ["Booch","Tyler Olson","Jimmy","BJ","Roy"] },
+      { sheet: "Wedel",  captainDisplay: "Wedel",   roster: ["Armga","Minnerly","Lefty Andy","Scotty","Trev"] },
+      { sheet: "Justin", captainDisplay: "Justin",  roster: ["Noah","Detric","Tim","Savatski","Don T"] },
+      { sheet: "Danny",  captainDisplay: "Danny",   roster: ["Hertz","Watts","Rocky","Les Wilk","Gallman"] },
+    ],
+  },
+  {
+    key: "FA23", name: "Fall 2023", period: "FALL", year: 2023,
+    startDate: new Date("2023-09-17"), endDate: new Date("2023-11-19"),
+    statFile: "Fall_2023_MBA_Stats.xlsx",
+    workbookFile: "3_MBA_Fall_2023_Workbook.xlsx", scheduleSheet: "2023 Schedule",
+    freehouse: [
+      { sheet: "Towns",   captainDisplay: "Towns",   roster: ["Connor","Macon","Tyler Olson","Wedel","Cori"] },
+      { sheet: "Gallman", captainDisplay: "Gallman", roster: ["Brett Wittchow","Jake B","Detric","Savatski","Trev"] },
+      { sheet: "Don",     captainDisplay: "Don T",   roster: ["Siebert","Mitch","Minnerly","TJ","Sir"] },
+      { sheet: "Roy",     captainDisplay: "Roy",     roster: ["Armga","Liam","Watts","Fast Pat","Dave F"] },
+    ],
+    delaneys: [
+      { sheet: "BJ",     captainDisplay: "BJ",       roster: ["Nate Ray","Noah","Lewis","Akim","Plotkin"] },
+      { sheet: "Ricky",  captainDisplay: "Ricky",    roster: ["Ziemer","Danny","Sean F","Tim","Scotty"] },
+      { sheet: "Winsor", captainDisplay: "Winsor",   roster: ["Chandler","Sam Wilk","Hertz","Gibbs","Karls"] },
+      { sheet: "Pat",    captainDisplay: "Pat Howe", roster: ["Reetz","Justin","Kahl","Lefty Andy","Younggren"] },
+    ],
+  },
+  {
+    key: "SP24", name: "Spring 2024", period: "SPRING", year: 2024,
+    startDate: new Date("2024-02-04"), endDate: new Date("2024-04-28"),
+    statFile: "Spring_2024_MBA_Stats.xlsx",
+    workbookFile: "4_MBA_Spring_2024_Workbook.xlsx", scheduleSheet: "2024 Schedule",
+    freehouse: [
+      { sheet: "Sean F", captainDisplay: "Sean F",      roster: ["Minnerly","Justin","Kain","Cooper","Cori"] },
+      { sheet: "Lewis",  captainDisplay: "Lewis",       roster: ["Noah","Watts","Roy Boone","Vos","BJ"] },
+      { sheet: "Hertz",  captainDisplay: "Hertz",       roster: ["Sam Wilk","Kahl","TJ","Don T","Tall Matt"] },
+      { sheet: "Danny",  captainDisplay: "Danny",       roster: ["Chandler","Detric","Mike Brand","Scotty","Roy"] },
+    ],
+    delaneys: [
+      { sheet: "Ziemer", captainDisplay: "Ziemer",      roster: ["Jake B","Nate Ray","Akim","Karls","Plotkin"] },
+      { sheet: "Olson",  captainDisplay: "Tyler Olson", roster: ["Reetz","Gibbs","Trev","Younggren","Ricky"] },
+      { sheet: "Tordoff",captainDisplay: "Mitch",       roster: ["Connor","Macon","Tim","Towns","Dave F"] },
+      { sheet: "Wedel",  captainDisplay: "Wedel",       roster: ["Armga","Liam","Lefty Andy","Sir","Gallman"] },
+    ],
+  },
+  {
+    key: "FA24", name: "Fall 2024", period: "FALL", year: 2024,
+    startDate: new Date("2024-09-15"), endDate: new Date("2024-11-17"),
+    statFile: "Fall_2024_MBA_Stats.xlsx",
+    workbookFile: "5_MBA_Fall_2024_Workbook.xlsx", scheduleSheet: "2024 Schedule",
+    freehouse: [
+      { sheet: "Neale",     captainDisplay: "Trev",      roster: ["Connor","Minnerly","Alex Hade","Carson","Plotkin"] },
+      { sheet: "Sir",       captainDisplay: "Sir",       roster: ["Sam Wilk","Watts","Roy Boone","Cori","BJ"] },
+      { sheet: "Akim",      captainDisplay: "Akim",      roster: ["Reetz","Hertz","Marty","Derek","Dave F"] },
+      { sheet: "TJ",        captainDisplay: "TJ",        roster: ["Chandler","Ty Parman","Danny","Tim","Ricky"] },
+    ],
+    delaneys: [
+      { sheet: "Towns",     captainDisplay: "Towns",     roster: ["Jake B","Macon","Spencer","Roy","Gallman"] },
+      { sheet: "Younggren", captainDisplay: "Younggren", roster: ["Noah","Justin","Kahl","Scotty","Vos"] },
+      { sheet: "Karls",     captainDisplay: "Karls",     roster: ["Sean F","Lewis","Tyler Olson","Kevin","Zack"] },
+      { sheet: "Cooper",    captainDisplay: "Cooper",    roster: ["Armga","Nate Ray","Ziemer","Don T","Tall Matt"] },
+    ],
+  },
+  {
+    key: "SP25", name: "Spring 2025", period: "SPRING", year: 2025,
+    startDate: new Date("2025-02-02"), endDate: new Date("2025-04-27"),
+    statFile: "Spring_2025_MBA_Stats.xlsx",
+    workbookFile: "6_MBA_Spring_2025_Workbook.xlsx", scheduleSheet: "2025 Schedule",
+    freehouse: [
+      { sheet: "Plotkin",   captainDisplay: "Plotkin",   roster: ["Chandler","Roy Boone","Sean F","Cooper","Towns"] },
+      { sheet: "Dave F",    captainDisplay: "Dave F",    roster: ["Reetz","Hertz","Mike Brand","Zack","Vos"] },
+      { sheet: "Cori",      captainDisplay: "Cori",      roster: ["Noah","Nate Ray","Alex Hade","Sir","Carson"] },
+      { sheet: "Tall Matt", captainDisplay: "Tall Matt", roster: ["Minnerly","Ty Parman","Danny","Willie","TJ"] },
+    ],
+    delaneys: [
+      { sheet: "Donny",     captainDisplay: "Don T",     roster: ["Armga","Justin","Lewis","Karls","Younggren"] },
+      { sheet: "Ricky",     captainDisplay: "Ricky",     roster: ["Siebert","Mitch","Trev","Akim","Scotty"] },
+      { sheet: "Roy",       captainDisplay: "Roy",       roster: ["Sam Wilk","Macon","Watts","Marty","Derek"] },
+      { sheet: "Gallman",   captainDisplay: "Gallman",   roster: ["Jake B","Ziemer","Tyler Olson","Tim","Wedel"] },
+    ],
+  },
+  {
+    key: "FA25", name: "Fall 2025", period: "FALL", year: 2025,
+    startDate: new Date("2025-09-07"), endDate: new Date("2025-11-16"),
+    statFile: "Fall_2025_MBA_Stats.xlsx",
+    workbookFile: "7_MBA_Fall_2025_Workbook.xlsx", scheduleSheet: "2025 Schedule",
+    freehouse: [
+      { sheet: "Brand",    captainDisplay: "Mike Brand", roster: ["Molloy","Roy Boone","Ryan Staege","Jamie Bush","Dave F"] },
+      { sheet: "Hertz",    captainDisplay: "Hertz",      roster: ["Armga","Marty","Tyler Olson","Scotty","Ricky"] },
+      { sheet: "Macon",    captainDisplay: "Macon",      roster: ["Sam Wilk","Ty Parman","TJ","Zack","Sir"] },
+      { sheet: "Ziemer",   captainDisplay: "Ziemer",     roster: ["Torin","Chase","Derek","Akim","Plotkin"] },
+    ],
+    delaneys: [
+      { sheet: "Lewis",    captainDisplay: "Lewis",      roster: ["Klassy","Watts","Trev","Ty S","Roy"] },
+      { sheet: "Sean F",   captainDisplay: "Sean F",     roster: ["Parzych","Alex Hade","Cooper","Tim","Younggren"] },
+      { sheet: "Jake B",   captainDisplay: "Jake B",     roster: ["Noah","Danny","Kahl","Hobert","Gallman"] },
+      { sheet: "Nate Ray", captainDisplay: "Nate Ray",   roster: ["Minnerly","Shane","Wedel","Karls","Don T"] },
+    ],
+  },
+  {
+    key: "SP26", name: "Spring 2026", period: "SPRING", year: 2026,
+    startDate: new Date("2026-01-25"), endDate: new Date("2026-04-05"),
+    statFile: "Spring_2026_MBA_Stats_1.xlsx",
+    workbookFile: "MBA_Spring_2026_Workbook.xlsx", scheduleSheet: "2026 Schedule",
+    freehouse: [
+      { sheet: "Cooper",      captainDisplay: "Cooper",     roster: ["Armga","Macon","Sean F","Don T","Ricky"] },
+      { sheet: "Derek",       captainDisplay: "Derek",      roster: ["Klassy","Ziemer","Lewis","Carson","Jamie Bush"] },
+      { sheet: "TJ",          captainDisplay: "TJ",         roster: ["Noah","Chase","Danny","Wedel","Sir"] },
+      { sheet: "Zack",        captainDisplay: "Zack",       roster: ["Sam Wilk","Shravan","Justin","Willie","Tall Matt"] },
+    ],
+    delaneys: [
+      { sheet: "Tyler Olson", captainDisplay: "Tyler Olson",roster: ["Chandler","Trev","Hertz","Jesse","Younggren"] },
+      { sheet: "Alex",        captainDisplay: "Alex Hade",  roster: ["Nate Rohrer","Ty Parman","Watts","Roy Boone","Roy"] },
+      { sheet: "Timmy",       captainDisplay: "Tim",        roster: ["Minnerly","Mike Brand","Marty","Ty S","Plotkin"] },
+      { sheet: "Akim",        captainDisplay: "Akim",       roster: ["Reetz","Jake B","Nate Ray","Kahl","Scotty"] },
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// HELPERS
 // ---------------------------------------------------------------------------
 
-function safeInt(v: unknown): number {
-  const n = Number(v)
-  return isNaN(n) ? 0 : Math.round(n)
+function canonical(raw: string, sessionKey?: string, sheetName?: string): string | null {
+  const t = raw.trim();
+  const over = SHEET_OVERRIDES[sessionKey ?? ""]?.[sheetName ?? ""]?.[t];
+  if (over !== undefined) return over;
+  return ALIASES[t] ?? null;
 }
 
-function str(v: unknown): string {
-  return v == null ? '' : String(v).trim()
+function calcPoints(fgm: number, t3fgm: number, ftm: number): number {
+  return (fgm - t3fgm) * 2 + t3fgm * 3 + ftm;
 }
 
-interface PlayerStat {
-  name: string
-  fgMade: number
-  fgAttempted: number
-  threesMade: number
-  threesAttempted: number
-  ftMade: number
-  ftAttempted: number
-  points: number
-  rebounds: number
-  assists: number
-  blocks: number
-  steals: number
-  turnovers: number
+function loadWorkbook(filename: string): XLSX.WorkBook {
+  return XLSX.readFile(path.join(DATA_DIR, filename), { cellDates: true });
+}
+
+// ---------------------------------------------------------------------------
+// SCHEDULE PARSER
+// Returns one SchedGame per unique matchup found in the workbook schedule sheet.
+// Scores sourced from the row immediately following each matchup row.
+// ---------------------------------------------------------------------------
+interface SchedGame {
+  week: number | null;
+  homeCapt: string;
+  awayCapt: string;
+  scheduledAt: Date;
+  homeScore: number | null;
+  awayScore: number | null;
+  court: string;
+  isPlayoff: boolean;
+  playoffRound: number | null;
+}
+
+function parseSchedule(wb: XLSX.WorkBook, sheetName: string): SchedGame[] {
+  const ws = wb.Sheets[sheetName];
+  if (!ws) return [];
+
+  // Read all cells into a 2D array.
+  // For each cell store { v, t } so we can distinguish date cells (t === "d" or t === "n" with date format).
+  const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1");
+  // We store raw cell objects so we can check type
+  const rawRows: (XLSX.CellObject | undefined)[][] = [];
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const row: (XLSX.CellObject | undefined)[] = [];
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      row.push(ws[XLSX.utils.encode_cell({ r, c })]);
+    }
+    rawRows.push(row);
+  }
+  // Helper: get cell value, converting date cells to Date objects
+  const cellVal = (cell: XLSX.CellObject | undefined): unknown => {
+    if (!cell) return null;
+    if (cell.t === "d") return cell.v instanceof Date ? cell.v : new Date((cell.v as number));
+    // xlsx with cellDates:true stores dates as JS Date in .v when t==="d"
+    // but some builds store numeric serial with t==="n" and a date numFmt
+    if (cell.t === "n" && typeof cell.v === "number") {
+      const fmt = (cell as unknown as { z?: string }).z ?? "";
+      if (fmt && /[dmy]/i.test(fmt)) {
+        // Convert Excel serial to Date (1900 date system)
+        return new Date(Math.round((cell.v - 25569) * 86400 * 1000));
+      }
+    }
+    return cell.v ?? null;
+  };
+  const rows: (unknown)[][] = rawRows.map(row => row.map(cellVal));
+
+  // Row index 1 (row 2): court label header — find each "Court" column
+  const courtCols: { homeCol: number; awayCol: number; label: string }[] = [];
+  for (let c = 0; c < (rows[1]?.length ?? 0); c++) {
+    const v = rows[1][c];
+    if (typeof v === "string" && v.includes("Court")) {
+      courtCols.push({ homeCol: c, awayCol: c + 2, label: v });
+    }
+  }
+
+  const games: SchedGame[] = [];
+  const seen = new Set<string>();
+
+  for (let i = 2; i < rows.length; i++) {
+    const row = rows[i];
+    const weekRaw = row[1];
+    if (typeof weekRaw !== "string" || !weekRaw.trim()) continue;
+
+    const isNoGames   = /no.?games?|cancel|spring break|thanksgiving|super bowl|easter/i.test(weekRaw);
+    if (isNoGames) continue;
+
+    const weekMatch   = weekRaw.match(/Week\s*(\d+)/i);
+    const isWildCard  = /wild.?card/i.test(weekRaw);
+    const isSemiFinal = /semi.?final/i.test(weekRaw);
+    const isChampship = /championship/i.test(weekRaw);
+    const isPlayoff   = isWildCard || isSemiFinal || isChampship;
+    const playoffRound = isWildCard ? 1 : isSemiFinal ? 2 : isChampship ? 3 : null;
+    const weekNum     = weekMatch ? parseInt(weekMatch[1]) : null;
+
+    if (!weekNum && !isPlayoff) continue;
+
+    // Parse scheduled date
+    const dateRaw = row[0];
+    let scheduledAt: Date;
+    if (dateRaw instanceof Date && !isNaN(dateRaw.getTime())) {
+      scheduledAt = dateRaw;
+    } else if (typeof dateRaw === "number" && dateRaw > 40000) {
+      // Excel date serial fallback (> 40000 = after year 2009, sanity check)
+      scheduledAt = new Date(Math.round((dateRaw - 25569) * 86400 * 1000));
+    } else {
+      scheduledAt = new Date();
+    }
+
+    // Score row is the row immediately after the matchup row
+    const scoreRow: unknown[] = rows[i + 1] ?? [];
+
+    for (const { homeCol, awayCol, label } of courtCols) {
+      const h = row[homeCol];
+      const a = row[awayCol];
+      if (typeof h !== "string" || typeof a !== "string") continue;
+      const hTrim = h.trim();
+      const aTrim = a.trim();
+      if (!hTrim || !aTrim) continue;
+
+      const hCapt = SCHED_ALIASES[hTrim] ?? hTrim;
+      const aCapt = SCHED_ALIASES[aTrim] ?? aTrim;
+
+      // Filter: skip self-matches (parsing artifacts) and unrecognised captains
+      if (hCapt === aCapt) continue;
+      if (!ALL_CAPTAINS.has(hCapt) || !ALL_CAPTAINS.has(aCapt)) continue;
+
+      // Deduplicate: same pair should appear only once per week/playoff round
+      const roundKey = isPlayoff ? `po${playoffRound}` : `w${weekNum}`;
+      const dedupeKey = `${roundKey}::${[hCapt, aCapt].sort().join("::")}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+
+      const hs  = scoreRow[homeCol];
+      const as_ = scoreRow[awayCol];
+      const homeScore = typeof hs  === "number" ? Math.round(hs)  : null;
+      const awayScore = typeof as_ === "number" ? Math.round(as_) : null;
+
+      games.push({
+        week: weekNum,
+        homeCapt: hCapt,
+        awayCapt: aCapt,
+        scheduledAt,
+        homeScore,
+        awayScore,
+        court: label,
+        isPlayoff,
+        playoffRound,
+      });
+    }
+  }
+
+  return games;
+}
+
+// ---------------------------------------------------------------------------
+// STAT SHEET PARSER
+// ---------------------------------------------------------------------------
+interface StatRow {
+  name: string;
+  fgm: number; fga: number;
+  t3fgm: number; t3fga: number;
+  ftm: number; fta: number;
+  pts: number;
+  reb: number; ast: number; blk: number; stl: number; tov: number;
 }
 
 interface GameBlock {
-  gameNum: number
-  players: PlayerStat[]
+  label: string;
+  rows: StatRow[];
 }
 
-/**
- * Parse repeating game blocks from a team stat sheet.
- * First game label is in df.columns[0] (e.g. "Game 1\n9/14").
- * Subsequent game labels are in col 0 of the data rows.
- */
-function parseTeamGames(ws: XLSX.WorkSheet): GameBlock[] {
-  const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1 }) as unknown[][]
-  const games: GameBlock[] = []
+function parseStatSheet(ws: XLSX.WorkSheet): GameBlock[] {
+  const games: GameBlock[] = [];
+  let current: GameBlock | null = null;
+  const range = XLSX.utils.decode_range(ws["!ref"] ?? "A1");
 
-  function parsePlayerRow(row: unknown[]): PlayerStat | null {
-    const name = str(row[1])
-    if (!name || ['Team Total', 'PLAYER', 'NaN'].includes(name)) return null
-    return {
-      name,
-      fgMade: safeInt(row[2]),
-      fgAttempted: safeInt(row[3]),
-      threesMade: safeInt(row[5]),
-      threesAttempted: safeInt(row[6]),
-      ftMade: safeInt(row[8]),
-      ftAttempted: safeInt(row[9]),
-      points: (safeInt(row[2]) - safeInt(row[5])) * 2 + safeInt(row[5]) * 3 + safeInt(row[8]),
-      rebounds: safeInt(row[12]),
-      assists: safeInt(row[13]),
-      blocks: safeInt(row[14]),
-      steals: safeInt(row[15]),
-      turnovers: safeInt(row[16]),
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const v = (c: number): unknown => ws[XLSX.utils.encode_cell({ r, c })]?.v ?? null;
+
+    const cellA = v(0);
+    // New game block starts when col A contains "Game"
+    if (typeof cellA === "string" && cellA.includes("Game")) {
+      current = { label: cellA.replace(/\n/g, " ").trim(), rows: [] };
+      games.push(current);
+      continue;
     }
+
+    if (!current) continue;
+
+    const nameRaw = v(1);
+    const name = typeof nameRaw === "string" ? nameRaw.trim() : null;
+    if (!name || ["team total","player","name"].includes(name.toLowerCase())) continue;
+
+    const fgm   = Number(v(2))  || 0;
+    const fga   = Number(v(3))  || 0;
+    const t3fgm = Number(v(5))  || 0;
+    const t3fga = Number(v(6))  || 0;
+    const ftm   = Number(v(8))  || 0;
+    const fta   = Number(v(9))  || 0;
+    const reb   = Number(v(12)) || 0;
+    const ast   = Number(v(13)) || 0;
+    const blk   = Number(v(14)) || 0;
+    const stl   = Number(v(15)) || 0;
+    const tov   = Number(v(16)) || 0;
+
+    if (fgm === 0 && fga === 0 && ftm === 0) continue;
+
+    current.rows.push({
+      name, fgm, fga, t3fgm, t3fga, ftm, fta,
+      pts: calcPoints(fgm, t3fgm, ftm),
+      reb, ast, blk, stl, tov,
+    });
   }
 
-  // Row 0 is the header — col 0 contains the first game label
-  const firstLabel = str((rows[0] as unknown[])[0])
-  const firstGameNum = parseInt(firstLabel.replace('\n', ' ').split(' ')[1])
-
-  const firstPlayers: PlayerStat[] = []
-  let i = 1
-  while (i < rows.length) {
-    const pname = str(rows[i][1])
-    if (!pname) break
-    const p = parsePlayerRow(rows[i])
-    if (p) firstPlayers.push(p)
-    i++
-  }
-  if (firstPlayers.length > 0) games.push({ gameNum: firstGameNum, players: firstPlayers })
-
-  // Remaining games
-  while (i < rows.length) {
-    const label = str(rows[i][0])
-    if (label.startsWith('Game')) {
-      const gameNum = parseInt(label.replace('\n', ' ').split(' ')[1])
-      const players: PlayerStat[] = []
-      i++
-      while (i < rows.length) {
-        const pname = str(rows[i][1])
-        if (!pname) break
-        const p = parsePlayerRow(rows[i])
-        if (p) players.push(p)
-        i++
-      }
-      if (players.length > 0) games.push({ gameNum, players })
-    } else {
-      i++
-    }
-  }
-
-  return games
+  return games;
 }
 
 // ---------------------------------------------------------------------------
-// Full name registry — displayName → { firstName, lastName }
-// Sourced from both workbook player pools
+// MAIN
 // ---------------------------------------------------------------------------
-
-const PLAYER_NAMES: Record<string, { firstName: string; lastName: string }> = {
-  // Sorted alphabetically by last name
-  'Carson':        { firstName: 'Carson',      lastName: 'Aeberhard' },
-  'Akim':          { firstName: 'John',        lastName: 'Akim' },
-  'Mike Amend':    { firstName: 'Mike',        lastName: 'Amend' },
-  'Armga':         { firstName: 'Austin',      lastName: 'Armga' },
-  'Cooper':        { firstName: 'Cooper',      lastName: 'Armstrong' },
-  'Justin':        { firstName: 'Justin',      lastName: 'Banzhaf' },
-  'Justin Bomkamp':{ firstName: 'Justin',      lastName: 'Bomkamp' },
-  'Jake B':        { firstName: 'Jacob',       lastName: 'Baryenbruch' },
-  'Sam BZ':        { firstName: 'Sam',         lastName: 'Ben-Zkiri' },
-  'Noah':          { firstName: 'Noah',        lastName: 'Beck' },
-  'Meech':         { firstName: 'Demetrious',  lastName: 'Boyd' },
-  'Boone':         { firstName: 'Roy',         lastName: 'Boone' },
-  'Roy Boone':     { firstName: 'Roy',         lastName: 'Boone' },
-  'Mike Brand':    { firstName: 'Mike',        lastName: 'Brand' },
-  'Kevin':         { firstName: 'Kevin',       lastName: 'Branch' },
-  'Klayton':       { firstName: 'Klayton',     lastName: 'Brandt' },
-  'Spencer':       { firstName: 'Spencer',     lastName: 'Brink' },
-  'Jamie':         { firstName: 'Jamie',       lastName: 'Bush' },
-  'BJ':            { firstName: 'BJ',          lastName: 'Cook' },
-  'Booch':         { firstName: 'Levon',       lastName: 'Crawford' },
-  'Connor':        { firstName: 'Connor',      lastName: 'Morovits' },
-  'Derek':         { firstName: 'Derek',       lastName: 'Dailey' },
-  'Chandler':      { firstName: 'Chandler',    lastName: 'Diekvoss' },
-  'Brandon Doll':  { firstName: 'Brandon',     lastName: 'Doll' },
-  'Donais':        { firstName: 'Brian',       lastName: 'Donais' },
-  'TJ':            { firstName: 'TJ',          lastName: 'Dooley' },
-  'Dreher':        { firstName: 'Derek',       lastName: 'Dreher' },
-  'Liam':          { firstName: 'Liam',        lastName: 'Duffy' },
-  'Rob Duax':      { firstName: 'Rob',         lastName: 'Duax' },
-  'Crooks':        { firstName: 'Andy',        lastName: 'Crooks' },
-  'Connor sub':    { firstName: 'Connor',      lastName: 'Connor' },   // one-time sub, last name unknown
-  'Sub (Ziemer)':  { firstName: 'Sub',         lastName: 'Sub' },      // one-time sub, last name unknown
-  'Donny (sub)':   { firstName: 'Donny',       lastName: 'Sub' },      // guest sub, not Donny Thompson
-  'Marty (sub)':   { firstName: 'Marty',       lastName: 'Sub' },      // guest sub, not Marty Petersen
-  'Roy (sub)':     { firstName: 'Roy',         lastName: 'Sub' },      // guest sub, not Roy Hasenfratz
-  'Cori':          { firstName: 'Cori',        lastName: 'Edmond' },
-  'Eric':          { firstName: 'Eric',        lastName: '' },     // one-time sub, last name unknown
-  'Sean F':        { firstName: 'Sean',        lastName: 'Fancsali' },
-  'Mike F':        { firstName: 'Mike',        lastName: 'Fancsali' },
-  'Dave F':        { firstName: 'Dave',        lastName: 'Filsinger' },
-  'Filip':         { firstName: 'Filip',       lastName: '' },         // sub, last name unknown
-  'Andy Fox':      { firstName: 'Andy',        lastName: 'Fox' },
-  'Gallman':       { firstName: 'Mike',        lastName: 'Gallman' },
-  'Gabe':          { firstName: 'Gabe',        lastName: '' },         // last name unknown
-  'Liam (sub)':    { firstName: 'Liam',        lastName: '' },         // different from Liam Duffy, last name unknown
-  'Ricky':         { firstName: 'Rick',        lastName: 'Geisler' },
-  'Zack':          { firstName: 'Zack',        lastName: 'Genthe' },
-  'Gibbs':         { firstName: 'Brian',       lastName: 'Gibbs' },
-  'Gus':           { firstName: 'Mark',        lastName: 'Gustavson' },
-  'Haag':          { firstName: 'Nate',        lastName: 'Haag' },
-  'Alex':          { firstName: 'Alex',        lastName: 'Hade' },
-  'Alex Hade':     { firstName: 'Alex',        lastName: 'Hade' },
-  'Torin':         { firstName: 'Torin',       lastName: 'Hannah' },
-  'Sir':           { firstName: 'SirJeremy',   lastName: 'Harrison' },
-  'Roy':           { firstName: 'Roy',         lastName: 'Hasenfratz' },
-  'Hertz':         { firstName: 'Sean',        lastName: 'Hertz' },
-  'Hobert':        { firstName: 'Nathan',      lastName: 'Hobert' },
-  'Lefty Andy':    { firstName: 'Andy',        lastName: 'Hosking' },
-  'Pat':           { firstName: 'Pat',         lastName: 'Howe' },
-  'Jeff Payton':   { firstName: 'Jeff',        lastName: 'Payton' },
-  'Chazz':         { firstName: 'Chazz',       lastName: 'Huston' },
-  'Alex Johnson':  { firstName: 'Alex',        lastName: 'Johnson' },
-  'Fast Pat':      { firstName: 'Pat',         lastName: 'Lagman' },
-  'Pat Howe':      { firstName: 'Pat',         lastName: 'Howe' },
-  'Kahl':          { firstName: 'Don',         lastName: 'Kahl' },
-  'Don Kahl':      { firstName: 'Don',         lastName: 'Kahl' },
-  'Karls':         { firstName: 'Matt',        lastName: 'Karls' },
-  'Chase Kieler':  { firstName: 'Chase',       lastName: 'Kieler' },
-  'Shane Kieler':  { firstName: 'Shane',       lastName: 'Kieler' },
-  'Klassy':        { firstName: 'Zach',        lastName: 'Klassy' },
-  'Murph':         { firstName: 'Murph',       lastName: 'Knepfel' },
-  'Danny':         { firstName: 'Danny',       lastName: 'Koss' },
-  'Lewis':         { firstName: 'Nate',        lastName: 'Lewis' },
-  'Detric':        { firstName: 'Detric',      lastName: 'McCain' },
-  'Dillon':        { firstName: 'Dillon',      lastName: 'Mezera' },
-  'Minnerly':      { firstName: 'Jeff',        lastName: 'Minnerly' },
-  'Molloy':        { firstName: 'Jack',        lastName: 'Molloy' },
-  'Trev Neale':    { firstName: 'Trevor',      lastName: 'Neale' },
-  'Willie':        { firstName: 'Willie',      lastName: 'Nellen' },
-  'Tall Matt':     { firstName: 'Matt',        lastName: 'Nonemacher' },
-  'Olson':         { firstName: 'Tyler',       lastName: 'Olson' },
-  'Tyler Olson':   { firstName: 'Tyler',       lastName: 'Olson' },
-  'Kain':          { firstName: 'Kain',        lastName: 'Paige' },
-  'Ty Parman':     { firstName: 'Ty',          lastName: 'Parman' },
-  'Shravan':       { firstName: 'Shravan',     lastName: 'Parman' },
-  'Parzych':       { firstName: 'Brian',       lastName: 'Parzych' },
-  'Brent':         { firstName: 'Brent',       lastName: 'Perzentka' },
-  'Sam P':         { firstName: 'Sam',         lastName: 'Pettegrew' },
-  'Marty':         { firstName: 'Marty',       lastName: 'Petersen' },
-  'Plotkin':       { firstName: 'Brian',       lastName: 'Plotkin' },
-  'Macon':         { firstName: 'Macon',       lastName: 'Plewa' },
-  'Johnny':        { firstName: 'Johnny',      lastName: 'Plewa' },
-  'Reetz':         { firstName: 'Jordan',      lastName: 'Reetz' },
-  'Ritzy':         { firstName: 'Jason',       lastName: 'Ritzenthaler' },
-  'Scotty':        { firstName: 'Scott',       lastName: 'Rippl' },
-  'Scotty Ripp':   { firstName: 'Scott',       lastName: 'Rippl' },
-  'Nate Ray':      { firstName: 'Nate',        lastName: 'Ray' },
-  'Nate Rohrer':   { firstName: 'Nate',        lastName: 'Rohrer' },
-  'Timmy':         { firstName: 'Tim',         lastName: 'Russell' },
-  'Tim Russell':   { firstName: 'Tim',         lastName: 'Russell' },
-  'Savatski':      { firstName: 'Matt',        lastName: 'Savatski' },
-  'Jake S':        { firstName: 'Jake',        lastName: 'Schroeckenthaler' },
-  'Siebert':       { firstName: 'Chris',       lastName: 'Siebert' },
-  'Simler':        { firstName: 'Darren',      lastName: 'Simler' },
-  'Ngijol':        { firstName: 'Ngijol',      lastName: 'Songolo' },
-  'Rocky':         { firstName: 'Rocky',       lastName: 'So' },
-  'Ryan Staege':   { firstName: 'Ryan',        lastName: 'Staege' },
-  'Staege':        { firstName: 'Jared',       lastName: 'Staege' },
-  'Ty S':          { firstName: 'Ty',          lastName: 'Strangstalien' },
-  'Jesse Temple':  { firstName: 'Jesse',       lastName: 'Temple' },
-  'Donny':         { firstName: 'Donny',       lastName: 'Thompson' },
-  'Tianen':        { firstName: 'Tianen',      lastName: '' },   // one-time sub, last name unknown
-  'Tordoff':       { firstName: 'Mitch',       lastName: 'Tordoff' },
-  'Towns':         { firstName: 'Jason',       lastName: 'Towns' },
-  'Valentyn':      { firstName: 'Brett',       lastName: 'Valentyn' },
-  'Jesus':         { firstName: 'Jesus',       lastName: 'Villagomez' },
-  'Carter':        { firstName: 'Carter',      lastName: 'Voelker' },
-  'Volt':          { firstName: 'Andy',        lastName: 'Voeltner' },
-  'Vos':           { firstName: 'Nate',        lastName: 'Vos' },
-  'Julian':        { firstName: 'Julian',      lastName: 'Walters' },
-  'Watts':         { firstName: 'Dave',        lastName: 'Watts' },
-  'Wedel':         { firstName: 'Tyler',       lastName: 'Wedel' },
-  'Paul':          { firstName: 'Paul',        lastName: 'Wedel' },
-  'Jimmy':         { firstName: 'Jimmy',       lastName: 'West' },
-  'Jimmy West':    { firstName: 'Jimmy',       lastName: 'West' },
-  'Winsor':        { firstName: 'Andy',        lastName: 'Winsor' },
-  'Brett Wittchow':{ firstName: 'Brett',       lastName: 'Wittchow' },
-  'Sam Wilk':      { firstName: 'Sam',         lastName: 'Wilkinson' },
-  'Les Wilk':      { firstName: 'Les',         lastName: 'Wilkinson' },
-  'Younggren':     { firstName: 'Michael',     lastName: 'Younggren' },
-  'Ziemer':        { firstName: 'Jason',       lastName: 'Ziemer' },
-}
-
-// Aliases — merge alternate spellings to one canonical displayName
-const ALIASES: Record<string, string> = {
-  'Tyler Olson':   'Olson',
-  'Don Kahl':      'Kahl',
-  'Jamie Bush':    'Jamie',
-  'Roy Boone':     'Boone',
-  'Scotty Ripp':   'Scotty',
-  'Brand':         'Mike Brand',
-  'Alex Hade':     'Alex',
-  'Tim Russell':   'Timmy',
-  // Sub/guest name variants
-  'Donny(sub)':    'Donny (sub)',  // different person from Donny Thompson
-  'Derek D (Sub)': 'Dreher',       // Derek Dreher subbing
-  'Rocky/Mike':    'Rocky',        // combination entry — resolves to Rocky
-  'Jack':          'Molloy',       // Jack Molloy
-  'J Staege':      'Staege',       // Jared Staege
-  'Stege':         'Staege',       // Jared Staege typo
-  'Sam Pettegrew': 'Sam P',        // Sam Pettegrew = Sam P
-  'Mike Y':        'Younggren',
-  'Mike Younggren':'Younggren',
-  'Jesse':         'Jesse Temple',
-  'Donais':        'Donais',       // Brian Donais (canonical)
-  'Brian D':       'Donais',
-  'Brian Donais':  'Donais',
-  'Duax':          'Rob Duax',
-  'Rob':           'Rob Duax',
-  'Parman':        'Ty Parman',
-  'Dave':          'Dave F',       // captain listed as 'Dave' in schedule
-  'Gabe':          'Gabe',         // Gabe (last name unknown) = Ponytail
-  'Ponytail':      'Gabe',
-  'Johnny Plewa':  'Johnny',
-  'Brother Macon': 'Johnny',       // Johnny Plewa subbing on brother's team
-  'Macon bro':     'Johnny',
-  'Hobart':        'Hobert',
-  'Nate Hobart':   'Hobert',
-  'Nathan Hobert': 'Hobert',
-  'Jaime Bush':    'Jamie',
-  'Liam (Justin)': 'Liam (sub)',   // different person from Liam
-  'Marty (sub)':   'Marty (sub)',   // different person from Marty Petersen
-  'Roy (sub)':     'Roy (sub)',     // different person from Roy
-  'Connor sub':    'Connor sub',    // different person from Connor Morovits
-  'Sub (Ziemer)':  'Sub (Ziemer)', // unknown sub on Ziemer's team
-  'Zach':          'Zack',
-  'Brett':         'Brett Wittchow',
-  'Andy Crooks':   'Crooks',
-  'Andy Winsor':   'Winsor',
-  'Don':           'Donny',        // Don Thompson captained as 'Don'
-  'Don Thompson':  'Donny',
-  'Nate Lewis':    'Lewis',
-  'Pat Howe':      'Pat Howe',     // full name — different from Pat (captain)
-  'Derek Dailey':  'Derek',
-  'Tyler Wedel':   'Wedel',
-  'San P':         'Sam P',        // typo for Sam P
-  'Scotty Rip':    'Scotty',
-  'Nate':          'Lewis',        // Nate Lewis captained as 'Nate' in stat sheet
-  'Tyler O':       'Olson',
-  'Trev':          'Trev Neale',
-  'Tim':           'Timmy',        // Tim Russell
-  'Mitch':         'Tordoff',
-  'Les':           'Les Wilk',
-  'Don T':         'Donny',
-  'Brandon':       'Brandon Doll',
-  'Brandon Doll':  'Brandon Doll',
-  'Darren':        'Simler',
-  'Jeff Minnerly': 'Minnerly',
-  'Mitch Tordoff': 'Tordoff',
-  'Jimmy West':    'Jimmy',
-  'Dreher':        'Dreher',       // Derek Dreher (different from Derek Dailey)
-  'Trev Neal':        'Trev Neale',
-  'Trevor':           'Trev Neale',
-  'Neale':            'Trev Neale',
-  'TJ Dooley':        'TJ',
-  'Torin Hannah':     'Torin',
-  'Zach Klassy':      'Klassy',
-  'Marty Petersen':   'Marty',
-  'Ty Strangstalein': 'Ty S',
-  'Brian Parzych':    'Parzych',
-  'Jack Molloy':      'Molloy',
-  'Roy H':            'Roy',
-  'Tyler':            'Wedel',
-  'Pat':              'Pat Howe',
-}
-
-function canonical(raw: string): string {
-  return ALIASES[raw] ?? raw
-}
-
-function isSub(displayName: string): boolean {
-  const lower = displayName.toLowerCase()
-  return lower.startsWith('sub') || lower.endsWith('sub') || lower.includes('(sub)')
-}
-
-function getNames(displayName: string): { firstName: string; lastName: string } {
-  return PLAYER_NAMES[displayName] ?? { firstName: displayName, lastName: displayName }
-}
-
-// ---------------------------------------------------------------------------
-// Rosters
-// ---------------------------------------------------------------------------
-
-// Spring 2023
-const S23_ROSTERS: Record<string, string[]> = {
-  'Sean F':  ['Sean F',  'Ngijol',       'Simler',      'Younggren',  'Cooper',      'Dave F'],
-  'Sam P':   ['Sam P',   'Booch',        'Tyler Olson', 'BJ',         'Roy',         'Towns'],
-  'Lewis':   ['Lewis',   'Reetz',        'Gibbs',       'Sir',        'Vos',         'Karls'],
-  'Tyler':   ['Tyler',   'Armga',        'Jeff Minnerly','Lefty Andy','Scotty Ripp', 'Trev Neale'],
-  'Ziemer':  ['Ziemer',  'Nate Ray',     'Mitch Tordoff','Akim',      'Klayton',     'Dave F'],
-  'Justin':  ['Justin',  'Noah',         'Detric',      'Tim Russell','Savatski',    'Don Thompson'],
-  'Connor':  ['Connor',  'Sam Wilk',     'Don Kahl',    'Mike Younggren','Plotkin',  'Dave F'],
-  'Danny':   ['Danny',   'Hertz',        'Watts',       'Rocky',      'Les Wilk',    'Gallman'],
-}
-
-const S23_DIVISIONS: Record<string, Division> = {
-  'Sean F':  Division.FREEHOUSE,
-  'Lewis':   Division.FREEHOUSE,
-  'Ziemer':  Division.FREEHOUSE,
-  'Connor':  Division.FREEHOUSE,
-  'Sam P':   Division.DELANEYS,
-  'Tyler':   Division.DELANEYS,
-  'Justin':  Division.DELANEYS,
-  'Danny':   Division.DELANEYS,
-}
-
-const S23_SCHEDULE: RoundEntry[] = [
-  { date: '2023-02-19', week: 1, games: [
-    { home: 'Sam P',   away: 'Tyler',  court: 'Court 1 (Left Side) - 7:15', homeScore: 58,  awayScore: 70  },
-    { home: 'Justin',  away: 'Danny',  court: 'Court 3 (Right Side) - 7:15', homeScore: 85, awayScore: 78  },
-    { home: 'Sean F',  away: 'Lewis',  court: 'Court 1 (Left Side) - 8:15', homeScore: 67,  awayScore: 85  },
-    { home: 'Ziemer',  away: 'Connor', court: 'Court 3 (Right Side) - 8:15', homeScore: 99, awayScore: 89  },
-  ]},
-  { date: '2023-02-26', week: 2, games: [
-    { home: 'Sean F',  away: 'Ziemer', court: 'Court 1 (Left Side) - 7:15', homeScore: 89,  awayScore: 91  },
-    { home: 'Lewis',   away: 'Connor', court: 'Court 3 (Right Side) - 7:15', homeScore: 99, awayScore: 81  },
-    { home: 'Sam P',   away: 'Justin', court: 'Court 1 (Left Side) - 8:15', homeScore: 77,  awayScore: 68  },
-    { home: 'Tyler',   away: 'Danny',  court: 'Court 3 (Right Side) - 8:15', homeScore: 91, awayScore: 75  },
-  ]},
-  { date: '2023-03-05', week: 3, games: [
-    { home: 'Danny',   away: 'Sam P',  court: 'Court 1 (Left Side) - 7:15', homeScore: 68,  awayScore: 83  },
-    { home: 'Tyler',   away: 'Justin', court: 'Court 3 (Right Side) - 7:15', homeScore: 99, awayScore: 77  },
-    { home: 'Connor',  away: 'Sean F', court: 'Court 1 (Left Side) - 8:15', homeScore: 83,  awayScore: 78  },
-    { home: 'Lewis',   away: 'Ziemer', court: 'Court 3 (Right Side) - 8:15', homeScore: 85, awayScore: 62  },
-  ]},
-  { date: '2023-03-12', week: 4, games: [
-    { home: 'Lewis',   away: 'Tyler',  court: 'Court 1 (Left Side) - 7:15', homeScore: 78,  awayScore: 85  },
-    { home: 'Sean F',  away: 'Sam P',  court: 'Court 3 (Right Side) - 7:15', homeScore: 86, awayScore: 74  },
-    { home: 'Ziemer',  away: 'Justin', court: 'Court 1 (Left Side) - 8:15', homeScore: 85,  awayScore: 82  },
-    { home: 'Connor',  away: 'Danny',  court: 'Court 3 (Right Side) - 8:15', homeScore: 79, awayScore: 76  },
-  ]},
-  { date: '2023-03-19', week: 5, games: [
-    { home: 'Connor',  away: 'Justin', court: 'Court 1 (Left Side) - 7:15', homeScore: 75,  awayScore: 72  },
-    { home: 'Ziemer',  away: 'Danny',  court: 'Court 3 (Right Side) - 7:15', homeScore: 75, awayScore: 70  },
-    { home: 'Sean F',  away: 'Tyler',  court: 'Court 1 (Left Side) - 8:15', homeScore: 78,  awayScore: 76  },
-    { home: 'Sam P',   away: 'Lewis',  court: 'Court 3 (Right Side) - 8:15', homeScore: 95, awayScore: 82  },
-  ]},
-  { date: '2023-04-02', week: 6, games: [
-    { home: 'Sam P',   away: 'Ziemer', court: 'Court 1 (Left Side) - 6:30', homeScore: 98,  awayScore: 85  },
-    { home: 'Connor',  away: 'Tyler',  court: 'Court 3 (Right Side) - 6:30', homeScore: 86, awayScore: 94  },
-    { home: 'Lewis',   away: 'Danny',  court: 'Court 1 (Left Side) - 7:30', homeScore: 79,  awayScore: 78  },
-    { home: 'Sean F',  away: 'Justin', court: 'Court 3 (Right Side) - 7:30', homeScore: 77, awayScore: 65  },
-  ]},
-  { date: '2023-04-16', week: 7, games: [
-    { home: 'Sean F',  away: 'Danny',  court: 'Court 1 (Left Side) - 6:30', homeScore: 97,  awayScore: 81  },
-    { home: 'Lewis',   away: 'Justin', court: 'Court 3 (Right Side) - 6:30', homeScore: 96, awayScore: 90  },
-    { home: 'Sam P',   away: 'Connor', court: 'Court 1 (Left Side) - 7:30', homeScore: 76,  awayScore: 77  },
-    { home: 'Tyler',   away: 'Ziemer', court: 'Court 3 (Right Side) - 7:30', homeScore: 80, awayScore: 84  },
-  ]},
-  { date: '2023-04-23', week: 8, games: [
-    { home: 'Connor',  away: 'Ziemer', court: 'Court 1 (Left Side) - 6:30', homeScore: 80,  awayScore: 68  },
-    { home: 'Lewis',   away: 'Sean F', court: 'Court 3 (Right Side) - 6:30', homeScore: 62, awayScore: 90  },
-    { home: 'Danny',   away: 'Justin', court: 'Court 1 (Left Side) - 7:30', homeScore: 89,  awayScore: 73  },
-    { home: 'Tyler',   away: 'Sam P',  court: 'Court 3 (Right Side) - 7:30', homeScore: 97, awayScore: 81  },
-  ]},
-  { date: '2023-04-30', week: 9, games: [
-    { home: 'Danny',   away: 'Tyler',  court: 'Court 1 (Left Side) - 6:30', homeScore: 78,  awayScore: 106 },
-    { home: 'Justin',  away: 'Sam P',  court: 'Court 3 (Right Side) - 6:30', homeScore: 80, awayScore: 72  },
-    { home: 'Connor',  away: 'Lewis',  court: 'Court 1 (Left Side) - 7:30', homeScore: 94,  awayScore: 92  },
-    { home: 'Ziemer',  away: 'Sean F', court: 'Court 3 (Right Side) - 7:30', homeScore: 94, awayScore: 79  },
-  ]},
-  { date: '2023-05-07', week: 10, games: [
-    { home: 'Ziemer',  away: 'Lewis',  court: 'Court 1 (Left Side) - 6:30', homeScore: 96,  awayScore: 95  },
-    { home: 'Sean F',  away: 'Connor', court: 'Court 3 (Right Side) - 6:30', homeScore: 87, awayScore: 81  },
-    { home: 'Justin',  away: 'Tyler',  court: 'Court 1 (Left Side) - 7:30', homeScore: 80,  awayScore: 88  },
-    { home: 'Sam P',   away: 'Danny',  court: 'Court 3 (Right Side) - 7:30', homeScore: 80, awayScore: 90  },
-  ]},
-  { date: '2023-05-14', week: 11, games: [
-    { home: 'Tyler',   away: 'Sean F', court: 'Court 1 (Left Side) - 6:30', homeScore: 82,  awayScore: 53, },
-    { home: 'Connor',  away: 'Ziemer', court: 'Court 1 (Left Side) - 7:30', homeScore: 96,  awayScore: 87, },
-  ]},
-  { date: '2023-05-21', week: 12, games: [
-    { home: 'Tyler',   away: 'Connor', court: 'Court 1 (Left Side) - 6:30' },
-  ]},
-]
-
-const S23_STANDINGS: Record<string, { wins: number; losses: number; divisionWins: number; divisionLosses: number; pointDifferential: number }> = {
-  'Ziemer':  { wins: 7, losses: 3, divisionWins: 4, divisionLosses: 2, pointDifferential: -8   },
-  'Connor':  { wins: 6, losses: 4, divisionWins: 3, divisionLosses: 3, pointDifferential: -16  },
-  'Sean F':  { wins: 6, losses: 4, divisionWins: 2, divisionLosses: 4, pointDifferential: 36   },
-  'Lewis':   { wins: 5, losses: 5, divisionWins: 3, divisionLosses: 3, pointDifferential: 15   },
-  'Tyler':   { wins: 8, losses: 2, divisionWins: 6, divisionLosses: 0, pointDifferential: 111  },
-  'Sam P':   { wins: 4, losses: 6, divisionWins: 2, divisionLosses: 4, pointDifferential: -9   },
-  'Justin':  { wins: 2, losses: 8, divisionWins: 2, divisionLosses: 4, pointDifferential: -64  },
-  'Danny':   { wins: 2, losses: 8, divisionWins: 2, divisionLosses: 4, pointDifferential: -65  },
-}
-
-// Fall 2023
-const F23_ROSTERS: Record<string, string[]> = {
-  'Ricky':        ['Ricky',        'Armga',      'Sean F',     'Tyler Olson', 'Tim Russell', 'Cori'],
-  'Don Thompson': ['Don Thompson', 'Siebert',    'Tordoff',    'Jeff Minnerly','Sir',        'Trev Neale'],
-  'Gallman':      ['Gallman',      'Brett',      'Jake B',     'Detric',      'Savatski',    'Trev Neale'],
-  'Pat':          ['Pat',          'Reetz',      'Justin',     'Don Kahl',    'Lefty Andy',  'Younggren'],
-  'Winsor':       ['Winsor',       'Chandler',   'Macon',      'Wedel',       'Gibbs',       'Karls'],
-  'Roy':          ['Roy',          'Ziemer',     'Danny',      'Liam',        'Fast Pat',    'Scotty Ripp'],
-  'BJ':           ['BJ',           'Nate Ray',   'Noah',       'Nate Lewis',  'Akim',        'Plotkin'],
-  'Towns':        ['Towns',        'Connor',     'Sam Wilk',   'Hertz',       'Watts',       'Dave F'],
-}
-
-const F23_DIVISIONS: Record<string, Division> = {
-  'Towns':        Division.FREEHOUSE,
-  'Gallman':      Division.FREEHOUSE,
-  'Don Thompson': Division.FREEHOUSE,
-  'Roy':          Division.FREEHOUSE,
-  'BJ':           Division.DELANEYS,
-  'Ricky':        Division.DELANEYS,
-  'Winsor':       Division.DELANEYS,
-  'Pat':          Division.DELANEYS,
-}
-
-const F23_SCHEDULE: RoundEntry[] = [
-  { date: '2023-09-17', week: 1, games: [
-    { home: 'Roy',          away: 'Towns',        court: 'Court 1 (Left Side) - 6:30', homeScore: 93, awayScore: 70 },
-    { home: 'Winsor',       away: 'BJ',           court: 'Court 3 (Right Side) - 6:30', homeScore: 81, awayScore: 72 },
-    { home: 'Don Thompson', away: 'Gallman',      court: 'Court 1 (Left Side) - 7:30', homeScore: 89, awayScore: 71 },
-    { home: 'Ricky',        away: 'Pat',          court: 'Court 3 (Right Side) - 7:30', homeScore: 59, awayScore: 62 },
-  ]},
-  { date: '2023-09-24', week: 2, games: [
-    { home: 'Pat',          away: 'BJ',           court: 'Court 1 (Left Side) - 6:30', homeScore: 91, awayScore: 60 },
-    { home: 'Ricky',        away: 'Winsor',       court: 'Court 3 (Right Side) - 6:30', homeScore: 63, awayScore: 92 },
-    { home: 'Don Thompson', away: 'Roy',          court: 'Court 1 (Left Side) - 7:30', homeScore: 68, awayScore: 87 },
-    { home: 'Gallman',      away: 'Towns',        court: 'Court 3 (Right Side) - 7:30', homeScore: 82, awayScore: 66 },
-  ]},
-  { date: '2023-10-01', week: 3, games: [
-    { home: 'Gallman',      away: 'Roy',          court: 'Court 1 (Left Side) - 6:30', homeScore: 72, awayScore: 93 },
-    { home: 'Don Thompson', away: 'Towns',        court: 'Court 3 (Right Side) - 6:30', homeScore: 84, awayScore: 64 },
-    { home: 'Ricky',        away: 'BJ',           court: 'Court 1 (Left Side) - 7:30', homeScore: 81, awayScore: 88 },
-    { home: 'Pat',          away: 'Winsor',       court: 'Court 3 (Right Side) - 7:30', homeScore: 76, awayScore: 68 },
-  ]},
-  { date: '2023-10-08', week: 4, games: [
-    { home: 'Don Thompson', away: 'BJ',           court: 'Court 1 (Left Side) - 6:30', homeScore: 105, awayScore: 100 },
-    { home: 'Pat',          away: 'Roy',          court: 'Court 3 (Right Side) - 6:30', homeScore: 77, awayScore: 84 },
-    { home: 'Ricky',        away: 'Towns',        court: 'Court 1 (Left Side) - 7:30', homeScore: 66, awayScore: 84 },
-    { home: 'Gallman',      away: 'Winsor',       court: 'Court 3 (Right Side) - 7:30', homeScore: 82, awayScore: 65 },
-  ]},
-  { date: '2023-10-15', week: 5, games: [
-    { home: 'Ricky',        away: 'Gallman',      court: 'Court 1 (Left Side) - 6:30', homeScore: 83, awayScore: 73 },
-    { home: 'Winsor',       away: 'Towns',        court: 'Court 3 (Right Side) - 6:30', homeScore: 81, awayScore: 73 },
-    { home: 'Roy',          away: 'BJ',           court: 'Court 1 (Left Side) - 7:30', homeScore: 103, awayScore: 64 },
-    { home: 'Don Thompson', away: 'Pat',          court: 'Court 3 (Right Side) - 7:30', homeScore: 94, awayScore: 82 },
-  ]},
-  { date: '2023-10-22', week: 6, games: [
-    { home: 'Winsor',       away: 'Roy',          court: 'Court 1 (Left Side) - 6:30', homeScore: 74, awayScore: 91 },
-    { home: 'Ricky',        away: 'Don Thompson', court: 'Court 3 (Right Side) - 6:30', homeScore: 60, awayScore: 73 },
-    { home: 'Gallman',      away: 'Pat',          court: 'Court 1 (Left Side) - 7:30', homeScore: 66, awayScore: 65 },
-    { home: 'BJ',           away: 'Towns',        court: 'Court 3 (Right Side) - 7:30', homeScore: 66, awayScore: 80 },
-  ]},
-  { date: '2023-10-29', week: 7, games: [
-    { home: 'Pat',          away: 'Towns',        court: 'Court 1 (Left Side) - 6:30', homeScore: 73, awayScore: 77 },
-    { home: 'Gallman',      away: 'BJ',           court: 'Court 3 (Right Side) - 6:30', homeScore: 87, awayScore: 80 },
-    { home: 'Don Thompson', away: 'Winsor',       court: 'Court 1 (Left Side) - 7:30', homeScore: 66, awayScore: 90 },
-    { home: 'Ricky',        away: 'Roy',          court: 'Court 3 (Right Side) - 7:30', homeScore: 72, awayScore: 102 },
-  ]},
-  { date: '2023-11-05', week: 8, games: [
-    { home: 'Pat',          away: 'Ricky',        court: 'Court 1 (Left Side) - 6:30', homeScore: 87, awayScore: 67 },
-    { home: 'Gallman',      away: 'Don Thompson', court: 'Court 3 (Right Side) - 6:30', homeScore: 87, awayScore: 84 },
-    { home: 'BJ',           away: 'Winsor',       court: 'Court 1 (Left Side) - 7:30', homeScore: 84, awayScore: 79 },
-    { home: 'Towns',        away: 'Roy',          court: 'Court 3 (Right Side) - 7:30', homeScore: 71, awayScore: 97 },
-  ]},
-  { date: '2023-11-12', week: 9, games: [
-    { home: 'Towns',        away: 'Gallman',      court: 'Court 1 (Left Side) - 6:30', homeScore: 81, awayScore: 84 },
-    { home: 'Roy',          away: 'Don Thompson', court: 'Court 3 (Right Side) - 6:30', homeScore: 76, awayScore: 87 },
-    { home: 'Winsor',       away: 'Ricky',        court: 'Court 1 (Left Side) - 7:30', homeScore: 112, awayScore: 70 },
-    { home: 'BJ',           away: 'Pat',          court: 'Court 3 (Right Side) - 7:30', homeScore: 82, awayScore: 61 },
-  ]},
-  { date: '2023-11-19', week: 10, games: [
-    { home: 'Winsor',       away: 'Pat',          court: 'Court 1 (Left Side) - 6:30', homeScore: 87, awayScore: 89 },
-    { home: 'BJ',           away: 'Ricky',        court: 'Court 3 (Right Side) - 6:30', homeScore: 82, awayScore: 80 },
-    { home: 'Towns',        away: 'Don Thompson', court: 'Court 1 (Left Side) - 7:30', homeScore: 100, awayScore: 96 },
-    { home: 'Roy',          away: 'Gallman',      court: 'Court 3 (Right Side) - 7:30', homeScore: 96, awayScore: 77 },
-  ]},
-]
-
-const F23_STANDINGS: Record<string, { wins: number; losses: number; divisionWins: number; divisionLosses: number; pointDifferential: number }> = {
-  'Roy':          { wins: 9, losses: 1, divisionWins: 5, divisionLosses: 1, pointDifferential: 190  },
-  'Don Thompson': { wins: 6, losses: 4, divisionWins: 3, divisionLosses: 3, pointDifferential: 29   },
-  'Gallman':      { wins: 6, losses: 4, divisionWins: 3, divisionLosses: 3, pointDifferential: -21  },
-  'Towns':        { wins: 4, losses: 6, divisionWins: 1, divisionLosses: 5, pointDifferential: -56  },
-  'Pat':          { wins: 5, losses: 5, divisionWins: 5, divisionLosses: 1, pointDifferential: 19   },
-  'Winsor':       { wins: 5, losses: 5, divisionWins: 3, divisionLosses: 3, pointDifferential: 63   },
-  'BJ':           { wins: 4, losses: 6, divisionWins: 4, divisionLosses: 2, pointDifferential: -70  },
-  'Ricky':        { wins: 1, losses: 9, divisionWins: 0, divisionLosses: 6, pointDifferential: -154 },
-}
-
-// Spring 2024
-const S24_ROSTERS: Record<string, string[]> = {
-  'Wedel':      ['Wedel',      'Armga',      'Liam',        'Lefty Andy', 'Sir',         'Gallman'],
-  'Danny':      ['Danny',      'Chandler',   'Detric',      'Mike Brand', 'Scotty Ripp', 'Roy'],
-  'Tyler Olson':['Tyler Olson','Reetz',      'Gibbs',       'Trev Neale', 'Mike Younggren','Ricky'],
-  'Tordoff':    ['Tordoff',    'Connor',     'Macon',       'Tim Russell','Towns',       'Dave F'],
-  'Lewis':      ['Lewis',      'Noah',       'Watts',       'Roy Boone',  'Vos',         'BJ'],
-  'Hertz':      ['Hertz',      'Sam Wilk',   'Don Kahl',    'TJ',         'Don Thompson','Tall Matt'],
-  'Ziemer':     ['Ziemer',     'Jake B',     'Nate Ray',    'Akim',       'Karls',       'Plotkin'],
-  'Sean F':     ['Sean F',     'Minnerly',   'Justin',      'Kain',       'Cooper',      'Cori'],
-}
-
-const S24_DIVISIONS: Record<string, Division> = {
-  'Lewis':      Division.FREEHOUSE,
-  'Sean F':     Division.FREEHOUSE,
-  'Danny':      Division.FREEHOUSE,
-  'Hertz':      Division.FREEHOUSE,
-  'Wedel':      Division.DELANEYS,
-  'Ziemer':     Division.DELANEYS,
-  'Tyler Olson':Division.DELANEYS,
-  'Tordoff':    Division.DELANEYS,
-}
-
-const S24_SCHEDULE: RoundEntry[] = [
-  { date: '2024-02-04', week: 1, games: [
-    { home: 'Sean F',      away: 'Lewis',      court: 'Court 1 (Left Side) - 6:30', homeScore: 71, awayScore: 76 },
-    { home: 'Ziemer',      away: 'Tyler Olson',court: 'Court 3 (Right Side) - 6:30', homeScore: 80, awayScore: 41 },
-    { home: 'Danny',       away: 'Hertz',      court: 'Court 1 (Left Side) - 7:30', homeScore: 76, awayScore: 52 },
-    { home: 'Wedel',       away: 'Tordoff',    court: 'Court 3 (Right Side) - 7:30', homeScore: 69, awayScore: 78 },
-  ]},
-  { date: '2024-02-18', week: 2, games: [
-    { home: 'Wedel',       away: 'Tyler Olson',court: 'Court 1 (Left Side) - 6:30', homeScore: 85, awayScore: 80 },
-    { home: 'Danny',       away: 'Lewis',      court: 'Court 3 (Right Side) - 6:30', homeScore: 84, awayScore: 88 },
-    { home: 'Ziemer',      away: 'Tordoff',    court: 'Court 1 (Left Side) - 7:30', homeScore: 97, awayScore: 88 },
-    { home: 'Sean F',      away: 'Hertz',      court: 'Court 3 (Right Side) - 7:30', homeScore: 82, awayScore: 63 },
-  ]},
-  { date: '2024-03-03', week: 4, games: [
-    { home: 'Lewis',       away: 'Tyler Olson',court: 'Court 1 (Left Side) - 6:30', homeScore: 85, awayScore: 87 },
-    { home: 'Sean F',      away: 'Ziemer',     court: 'Court 3 (Right Side) - 6:30', homeScore: 86, awayScore: 66 },
-    { home: 'Hertz',       away: 'Tordoff',    court: 'Court 1 (Left Side) - 7:30', homeScore: 80, awayScore: 60 },
-    { home: 'Danny',       away: 'Wedel',      court: 'Court 3 (Right Side) - 7:30', homeScore: 95, awayScore: 84 },
-  ]},
-  { date: '2024-03-10', week: 5, games: [
-    { home: 'Danny',       away: 'Ziemer',     court: 'Court 1 (Left Side) - 6:30', homeScore: 103, awayScore: 95 },
-    { home: 'Lewis',       away: 'Tordoff',    court: 'Court 3 (Right Side) - 6:30', homeScore: 84, awayScore: 78 },
-    { home: 'Sean F',      away: 'Tyler Olson',court: 'Court 1 (Left Side) - 7:30', homeScore: 92, awayScore: 87 },
-    { home: 'Hertz',       away: 'Wedel',      court: 'Court 3 (Right Side) - 7:30', homeScore: 69, awayScore: 75 },
-  ]},
-  { date: '2024-03-17', week: 6, games: [
-    { home: 'Sean F',      away: 'Wedel',      court: 'Court 1 (Left Side) - 6:30', homeScore: 77, awayScore: 84 },
-    { home: 'Hertz',       away: 'Tyler Olson',court: 'Court 3 (Right Side) - 6:30', homeScore: 88, awayScore: 85 },
-    { home: 'Danny',       away: 'Tordoff',    court: 'Court 1 (Left Side) - 7:30', homeScore: 102, awayScore: 74 },
-    { home: 'Lewis',       away: 'Ziemer',     court: 'Court 3 (Right Side) - 7:30', homeScore: 83, awayScore: 56 },
-  ]},
-  { date: '2024-03-24', week: 3, games: [
-    { home: 'Sean F',      away: 'Danny',      court: 'Court 1 (Left Side) - 6:30', homeScore: 80, awayScore: 98 },
-    { home: 'Hertz',       away: 'Lewis',      court: 'Court 3 (Right Side) - 6:30', homeScore: 78, awayScore: 87 },
-    { home: 'Ziemer',      away: 'Wedel',      court: 'Court 1 (Left Side) - 7:30', homeScore: 72, awayScore: 94 },
-    { home: 'Tordoff',     away: 'Tyler Olson',court: 'Court 3 (Right Side) - 7:30', homeScore: 83, awayScore: 94 },
-  ]},
-  { date: '2024-04-07', week: 7, games: [
-    { home: 'Lewis',       away: 'Wedel',      court: 'Court 1 (Left Side) - 6:30', homeScore: 81, awayScore: 69 },
-    { home: 'Danny',       away: 'Tyler Olson',court: 'Court 3 (Right Side) - 6:30', homeScore: 79, awayScore: 70 },
-    { home: 'Hertz',       away: 'Ziemer',     court: 'Court 1 (Left Side) - 7:30', homeScore: 68, awayScore: 72 },
-    { home: 'Sean F',      away: 'Tordoff',    court: 'Court 3 (Right Side) - 7:30', homeScore: 97, awayScore: 80 },
-  ]},
-  { date: '2024-04-14', week: 8, games: [
-    { home: 'Tordoff',     away: 'Wedel',      court: 'Court 1 (Left Side) - 6:30', homeScore: 66, awayScore: 84 },
-    { home: 'Hertz',       away: 'Danny',      court: 'Court 3 (Right Side) - 6:30', homeScore: 74, awayScore: 67 },
-    { home: 'Tyler Olson', away: 'Ziemer',     court: 'Court 1 (Left Side) - 7:30', homeScore: 97, awayScore: 87 },
-    { home: 'Lewis',       away: 'Sean F',     court: 'Court 3 (Right Side) - 7:30', homeScore: 80, awayScore: 86 },
-  ]},
-  { date: '2024-04-21', week: 9, games: [
-    { home: 'Hertz',       away: 'Sean F',     court: 'Court 1 (Left Side) - 6:30', homeScore: 73, awayScore: 88 },
-    { home: 'Tordoff',     away: 'Ziemer',     court: 'Court 3 (Right Side) - 6:30', homeScore: 80, awayScore: 98 },
-    { home: 'Lewis',       away: 'Danny',      court: 'Court 1 (Left Side) - 7:30', homeScore: 89, awayScore: 80 },
-    { home: 'Tyler Olson', away: 'Wedel',      court: 'Court 3 (Right Side) - 7:30', homeScore: 87, awayScore: 99 },
-  ]},
-  { date: '2024-04-28', week: 10, games: [
-    { home: 'Tyler Olson', away: 'Tordoff',    court: 'Court 1 (Left Side) - 6:30', homeScore: 85, awayScore: 92 },
-    { home: 'Wedel',       away: 'Ziemer',     court: 'Court 3 (Right Side) - 6:30', homeScore: 90, awayScore: 84 },
-    { home: 'Lewis',       away: 'Hertz',      court: 'Court 1 (Left Side) - 7:30', homeScore: 86, awayScore: 65 },
-    { home: 'Danny',       away: 'Sean F',     court: 'Court 3 (Right Side) - 7:30', homeScore: 84, awayScore: 85 },
-  ]},
-]
-
-const S24_STANDINGS: Record<string, { wins: number; losses: number; divisionWins: number; divisionLosses: number; pointDifferential: number }> = {
-  'Lewis':      { wins: 8, losses: 2, divisionWins: 5, divisionLosses: 1, pointDifferential: 85   },
-  'Sean F':     { wins: 7, losses: 3, divisionWins: 4, divisionLosses: 2, pointDifferential: 53   },
-  'Danny':      { wins: 6, losses: 4, divisionWins: 2, divisionLosses: 4, pointDifferential: 77   },
-  'Hertz':      { wins: 3, losses: 7, divisionWins: 1, divisionLosses: 5, pointDifferential: -68  },
-  'Wedel':      { wins: 7, losses: 3, divisionWins: 5, divisionLosses: 1, pointDifferential: 44   },
-  'Ziemer':     { wins: 4, losses: 6, divisionWins: 3, divisionLosses: 3, pointDifferential: -23  },
-  'Tyler Olson':{ wins: 3, losses: 7, divisionWins: 2, divisionLosses: 4, pointDifferential: -57  },
-  'Tordoff':    { wins: 2, losses: 8, divisionWins: 2, divisionLosses: 4, pointDifferential: -111 },
-}
-
-// Fall 2024
-const F24_ROSTERS: Record<string, string[]> = {
-  'TJ':        ['TJ',        'Chandler',   'Ty Parman',   'Danny',      'Tim Russell', 'Ricky'],
-  'Cooper':    ['Cooper',    'Armga',      'Nate Ray',    'Ziemer',     'Don Thompson','Tall Matt'],
-  'Akim':      ['Akim',      'Reetz',      'Hertz',       'Tyler Olson','Zack',        'Dave F'],
-  'Sir':       ['Sir',       'Sam Wilk',   'Watts',       'Roy Boone',  'Cori',        'BJ'],
-  'Younggren': ['Younggren', 'Noah',       'Justin',      'Don Kahl',   'Scotty Ripp', 'Vos'],
-  'Karls':     ['Karls',     'Jake B',     'Nate Lewis',  'Marty',      'Kevin',       'Gallman'],
-  'Towns':     ['Towns',     'Macon',      'Sean F',      'Spencer',    'Derek',       'Roy'],
-  'Neale':     ['Neale',     'Connor',     'Minnerly',    'Alex Hade',  'Carson',      'Plotkin'],
-}
-
-const F24_DIVISIONS: Record<string, Division> = {
-  'TJ':        Division.FREEHOUSE,
-  'Neale':     Division.FREEHOUSE,
-  'Akim':      Division.FREEHOUSE,
-  'Sir':       Division.FREEHOUSE,
-  'Towns':     Division.DELANEYS,
-  'Younggren': Division.DELANEYS,
-  'Karls':     Division.DELANEYS,
-  'Cooper':    Division.DELANEYS,
-}
-
-const F24_SCHEDULE: RoundEntry[] = [
-  { date: '2024-09-15', week: 1, games: [
-    { home: 'Neale',     away: 'Akim',      court: 'Court 1 (Left Side) - 6:30', homeScore: 83, awayScore: 67 },
-    { home: 'Towns',     away: 'Cooper',    court: 'Court 3 (Right Side) - 6:30', homeScore: 59, awayScore: 87 },
-    { home: 'TJ',        away: 'Sir',       court: 'Court 1 (Left Side) - 7:30', homeScore: 76, awayScore: 50 },
-    { home: 'Younggren', away: 'Karls',     court: 'Court 3 (Right Side) - 7:30', homeScore: 60, awayScore: 74 },
-  ]},
-  { date: '2024-09-22', week: 2, games: [
-    { home: 'Younggren', away: 'Cooper',    court: 'Court 1 (Left Side) - 6:30', homeScore: 73, awayScore: 97 },
-    { home: 'TJ',        away: 'Akim',      court: 'Court 3 (Right Side) - 6:30', homeScore: 77, awayScore: 72 },
-    { home: 'Towns',     away: 'Karls',     court: 'Court 1 (Left Side) - 7:30', homeScore: 68, awayScore: 83 },
-    { home: 'Neale',     away: 'Sir',       court: 'Court 3 (Right Side) - 7:30', homeScore: 70, awayScore: 90 },
-  ]},
-  { date: '2024-09-29', week: 3, games: [
-    { home: 'Neale',     away: 'TJ',        court: 'Court 1 (Left Side) - 6:30', homeScore: 93, awayScore: 81 },
-    { home: 'Sir',       away: 'Akim',      court: 'Court 3 (Right Side) - 6:30', homeScore: 74, awayScore: 90 },
-    { home: 'Towns',     away: 'Younggren', court: 'Court 1 (Left Side) - 7:30', homeScore: 74, awayScore: 78 },
-    { home: 'Karls',     away: 'Cooper',    court: 'Court 3 (Right Side) - 7:30', homeScore: 74, awayScore: 85 },
-  ]},
-  { date: '2024-10-06', week: 4, games: [
-    { home: 'TJ',        away: 'Towns',     court: 'Court 1 (Left Side) - 6:30', homeScore: 99, awayScore: 66 },
-    { home: 'Akim',      away: 'Karls',     court: 'Court 3 (Right Side) - 6:30', homeScore: 72, awayScore: 74 },
-    { home: 'Neale',     away: 'Cooper',    court: 'Court 1 (Left Side) - 7:30', homeScore: 67, awayScore: 64 },
-    { home: 'Sir',       away: 'Younggren', court: 'Court 3 (Right Side) - 7:30', homeScore: 83, awayScore: 63 },
-  ]},
-  { date: '2024-10-13', week: 5, games: [
-    { home: 'Neale',     away: 'Younggren', court: 'Court 1 (Left Side) - 6:30', homeScore: 72, awayScore: 64 },
-    { home: 'Sir',       away: 'Cooper',    court: 'Court 3 (Right Side) - 6:30', homeScore: 87, awayScore: 98 },
-    { home: 'TJ',        away: 'Karls',     court: 'Court 1 (Left Side) - 7:30', homeScore: 81, awayScore: 88 },
-    { home: 'Akim',      away: 'Towns',     court: 'Court 3 (Right Side) - 7:30', homeScore: 98, awayScore: 61 },
-  ]},
-  { date: '2024-10-20', week: 6, games: [
-    { home: 'Sir',       away: 'Karls',     court: 'Court 1 (Left Side) - 6:30', homeScore: 83, awayScore: 75 },
-    { home: 'Neale',     away: 'Towns',     court: 'Court 3 (Right Side) - 6:30', homeScore: 67, awayScore: 58 },
-    { home: 'Akim',      away: 'Cooper',    court: 'Court 1 (Left Side) - 7:30', homeScore: 95, awayScore: 84 },
-    { home: 'TJ',        away: 'Younggren', court: 'Court 3 (Right Side) - 7:30', homeScore: 90, awayScore: 74 },
-  ]},
-  { date: '2024-10-27', week: 7, games: [
-    { home: 'Akim',      away: 'Younggren', court: 'Court 1 (Left Side) - 6:30', homeScore: 75, awayScore: 65 },
-    { home: 'TJ',        away: 'Cooper',    court: 'Court 3 (Right Side) - 6:30', homeScore: 81, awayScore: 91 },
-    { home: 'Sir',       away: 'Towns',     court: 'Court 1 (Left Side) - 7:30', homeScore: 93, awayScore: 87 },
-    { home: 'Neale',     away: 'Karls',     court: 'Court 3 (Right Side) - 7:30', homeScore: 76, awayScore: 67 },
-  ]},
-  { date: '2024-11-03', week: 8, games: [
-    { home: 'Karls',     away: 'Younggren', court: 'Court 1 (Left Side) - 6:30', homeScore: 69, awayScore: 56 },
-    { home: 'Sir',       away: 'TJ',        court: 'Court 3 (Right Side) - 6:30', homeScore: 89, awayScore: 95 },
-    { home: 'Cooper',    away: 'Towns',     court: 'Court 1 (Left Side) - 7:30', homeScore: 107, awayScore: 94 },
-    { home: 'Akim',      away: 'Neale',     court: 'Court 3 (Right Side) - 7:30', homeScore: 81, awayScore: 75 },
-  ]},
-  { date: '2024-11-10', week: 9, games: [
-    { home: 'Sir',       away: 'Neale',     court: 'Court 1 (Left Side) - 6:30', homeScore: 70, awayScore: 92 },
-    { home: 'Karls',     away: 'Towns',     court: 'Court 3 (Right Side) - 6:30', homeScore: 69, awayScore: 74 },
-    { home: 'Akim',      away: 'TJ',        court: 'Court 1 (Left Side) - 7:30', homeScore: 69, awayScore: 72 },
-    { home: 'Cooper',    away: 'Younggren', court: 'Court 3 (Right Side) - 7:30', homeScore: 64, awayScore: 73 },
-  ]},
-  { date: '2024-11-17', week: 10, games: [
-    { home: 'Cooper',    away: 'Karls',     court: 'Court 1 (Left Side) - 6:30', homeScore: 88, awayScore: 85 },
-    { home: 'Younggren', away: 'Towns',     court: 'Court 3 (Right Side) - 6:30', homeScore: 82, awayScore: 65 },
-    { home: 'Akim',      away: 'Sir',       court: 'Court 1 (Left Side) - 7:30', homeScore: 91, awayScore: 89 },
-    { home: 'TJ',        away: 'Neale',     court: 'Court 3 (Right Side) - 7:30', homeScore: 90, awayScore: 78 },
-  ]},
-]
-
-const F24_STANDINGS: Record<string, { wins: number; losses: number; divisionWins: number; divisionLosses: number; pointDifferential: number }> = {
-  'TJ':        { wins: 7, losses: 3, divisionWins: 5, divisionLosses: 1, pointDifferential: 72   },
-  'Neale':     { wins: 7, losses: 3, divisionWins: 3, divisionLosses: 3, pointDifferential: 41   },
-  'Akim':      { wins: 6, losses: 4, divisionWins: 3, divisionLosses: 3, pointDifferential: 56   },
-  'Sir':       { wins: 4, losses: 6, divisionWins: 1, divisionLosses: 5, pointDifferential: -29  },
-  'Cooper':    { wins: 7, losses: 3, divisionWins: 5, divisionLosses: 1, pointDifferential: 77   },
-  'Karls':     { wins: 5, losses: 5, divisionWins: 3, divisionLosses: 3, pointDifferential: 15   },
-  'Younggren': { wins: 3, losses: 7, divisionWins: 3, divisionLosses: 3, pointDifferential: -75  },
-  'Towns':     { wins: 1, losses: 9, divisionWins: 1, divisionLosses: 5, pointDifferential: -157 },
-}
-
-// Spring 2025
-const S25_ROSTERS: Record<string, string[]> = {
-  'Plotkin':   ['Plotkin',   'Chandler',   'Roy Boone',   'Sean F',     'Cooper',      'Towns'],
-  'Donny':     ['Donny',     'Armga',      'Justin',      'Nate Lewis', 'Karls',       'Younggren'],
-  'Dave F':    ['Dave F',    'Reetz',      'Hertz',       'Mike Brand', 'Zack',        'Vos'],
-  'Ricky':     ['Ricky',     'Siebert',    'Tordoff',     'Trev Neale', 'Akim',        'Scotty Ripp'],
-  'Cori':      ['Cori',      'Noah',       'Nate Ray',    'Alex Hade',  'Sir',         'Carson'],
-  'Roy':       ['Roy',       'Sam Wilk',   'Macon',       'Watts',      'Marty',       'Derek'],
-  'Tall Matt': ['Tall Matt', 'Minnerly',   'Parman',      'Danny',      'Willie',      'TJ'],
-  'Gallman':   ['Gallman',   'Jake B',     'Ziemer',      'Tyler Olson','Tim Russell', 'Wedel'],
-}
-
-const S25_DIVISIONS: Record<string, Division> = {
-  'Plotkin':   Division.FREEHOUSE,
-  'Tall Matt': Division.FREEHOUSE,
-  'Dave F':    Division.FREEHOUSE,
-  'Cori':      Division.FREEHOUSE,
-  'Roy':       Division.DELANEYS,
-  'Ricky':     Division.DELANEYS,
-  'Donny':     Division.DELANEYS,
-  'Gallman':   Division.DELANEYS,
-}
-
-const S25_SCHEDULE: RoundEntry[] = [
-  { date: '2025-01-19', week: 1, games: [
-    { home: 'Dave F',    away: 'Tall Matt', court: 'Court 1 (Left Side) - 6:30', homeScore: 82, awayScore: 90 },
-    { home: 'Ricky',     away: 'Donny',     court: 'Court 3 (Right Side) - 6:30', homeScore: 73, awayScore: 76 },
-    { home: 'Plotkin',   away: 'Cori',      court: 'Court 1 (Left Side) - 7:30', homeScore: 91, awayScore: 79 },
-    { home: 'Gallman',   away: 'Roy',       court: 'Court 3 (Right Side) - 7:30', homeScore: 72, awayScore: 75 },
-  ]},
-  { date: '2025-01-26', week: 2, games: [
-    { home: 'Gallman',   away: 'Donny',     court: 'Court 1 (Left Side) - 6:30', homeScore: 64, awayScore: 81 },
-    { home: 'Dave F',    away: 'Cori',      court: 'Court 3 (Right Side) - 6:30', homeScore: 92, awayScore: 89 },
-    { home: 'Ricky',     away: 'Roy',       court: 'Court 1 (Left Side) - 7:30', homeScore: 88, awayScore: 84 },
-    { home: 'Plotkin',   away: 'Tall Matt', court: 'Court 3 (Right Side) - 7:30', homeScore: 77, awayScore: 69 },
-  ]},
-  { date: '2025-02-02', week: 3, games: [
-    { home: 'Dave F',    away: 'Plotkin',   court: 'Court 1 (Left Side) - 6:30', homeScore: 80, awayScore: 89 },
-    { home: 'Cori',      away: 'Tall Matt', court: 'Court 3 (Right Side) - 6:30', homeScore: 78, awayScore: 98 },
-    { home: 'Ricky',     away: 'Gallman',   court: 'Court 1 (Left Side) - 7:30', homeScore: 81, awayScore: 102 },
-    { home: 'Roy',       away: 'Donny',     court: 'Court 3 (Right Side) - 7:30', homeScore: 75, awayScore: 73 },
-  ]},
-  { date: '2025-02-16', week: 4, games: [
-    { home: 'Dave F',    away: 'Gallman',   court: 'Court 1 (Left Side) - 6:30', homeScore: 69, awayScore: 79 },
-    { home: 'Cori',      away: 'Donny',     court: 'Court 3 (Right Side) - 6:30', homeScore: 86, awayScore: 84 },
-    { home: 'Plotkin',   away: 'Roy',       court: 'Court 1 (Left Side) - 7:30', homeScore: 65, awayScore: 74 },
-    { home: 'Tall Matt', away: 'Ricky',     court: 'Court 3 (Right Side) - 7:30', homeScore: 94, awayScore: 83 },
-  ]},
-  { date: '2025-02-23', week: 5, games: [
-    { home: 'Plotkin',   away: 'Ricky',     court: 'Court 1 (Left Side) - 6:30', homeScore: 77, awayScore: 89 },
-    { home: 'Tall Matt', away: 'Roy',       court: 'Court 3 (Right Side) - 6:30', homeScore: 62, awayScore: 67 },
-    { home: 'Dave F',    away: 'Donny',     court: 'Court 1 (Left Side) - 7:30', homeScore: 75, awayScore: 72 },
-    { home: 'Cori',      away: 'Gallman',   court: 'Court 3 (Right Side) - 7:30', homeScore: 88, awayScore: 94 },
-  ]},
-  { date: '2025-03-02', week: 6, games: [
-    { home: 'Cori',      away: 'Roy',       court: 'Court 1 (Left Side) - 6:30', homeScore: 89, awayScore: 59 },
-    { home: 'Dave F',    away: 'Ricky',     court: 'Court 3 (Right Side) - 6:30', homeScore: 99, awayScore: 75 },
-    { home: 'Tall Matt', away: 'Donny',     court: 'Court 1 (Left Side) - 7:30', homeScore: 73, awayScore: 67 },
-    { home: 'Plotkin',   away: 'Gallman',   court: 'Court 3 (Right Side) - 7:30', homeScore: 82, awayScore: 85 },
-  ]},
-  { date: '2025-03-09', week: 7, games: [
-    { home: 'Tall Matt', away: 'Gallman',   court: 'Court 1 (Left Side) - 6:30', homeScore: 74, awayScore: 61 },
-    { home: 'Plotkin',   away: 'Donny',     court: 'Court 3 (Right Side) - 6:30', homeScore: 84, awayScore: 94 },
-    { home: 'Cori',      away: 'Ricky',     court: 'Court 1 (Left Side) - 7:30', homeScore: 83, awayScore: 86 },
-    { home: 'Dave F',    away: 'Roy',       court: 'Court 3 (Right Side) - 7:30', homeScore: 91, awayScore: 75 },
-  ]},
-  { date: '2025-03-16', week: 8, games: [
-    { home: 'Roy',       away: 'Gallman',   court: 'Court 1 (Left Side) - 6:30', homeScore: 88, awayScore: 73 },
-    { home: 'Cori',      away: 'Plotkin',   court: 'Court 3 (Right Side) - 6:30', homeScore: 74, awayScore: 81 },
-    { home: 'Donny',     away: 'Ricky',     court: 'Court 1 (Left Side) - 7:30', homeScore: 91, awayScore: 95 },
-    { home: 'Tall Matt', away: 'Dave F',    court: 'Court 3 (Right Side) - 7:30', homeScore: 76, awayScore: 78 },
-  ]},
-  { date: '2025-03-30', week: 9, games: [
-    { home: 'Tall Matt', away: 'Plotkin',   court: 'Court 1 (Left Side) - 6:30', homeScore: 64, awayScore: 66 },
-    { home: 'Roy',       away: 'Ricky',     court: 'Court 3 (Right Side) - 6:30', homeScore: 86, awayScore: 83 },
-    { home: 'Cori',      away: 'Dave F',    court: 'Court 1 (Left Side) - 7:30', homeScore: 85, awayScore: 83 },
-    { home: 'Donny',     away: 'Gallman',   court: 'Court 3 (Right Side) - 7:30', homeScore: 70, awayScore: 48 },
-  ]},
-  { date: '2025-04-06', week: 10, games: [
-    { home: 'Donny',     away: 'Roy',       court: 'Court 1 (Left Side) - 6:30', homeScore: 57, awayScore: 63 },
-    { home: 'Gallman',   away: 'Ricky',     court: 'Court 3 (Right Side) - 6:30', homeScore: 71, awayScore: 83 },
-    { home: 'Tall Matt', away: 'Cori',      court: 'Court 1 (Left Side) - 7:30', homeScore: 81, awayScore: 76 },
-    { home: 'Plotkin',   away: 'Dave F',    court: 'Court 3 (Right Side) - 7:30', homeScore: 84, awayScore: 81 },
-  ]},
-  { date: '2025-04-13', week: 11, games: [
-    { home: 'Tall Matt', away: 'Ricky',     court: 'Court 1 (Left Side) - 6:30', homeScore: 101, awayScore: 74 },
-    { home: 'Dave F',    away: 'Donny',     court: 'Court 1 (Left Side) - 7:30', homeScore: 77,  awayScore: 0  },
-  ]},
-]
-
-const S25_STANDINGS: Record<string, { wins: number; losses: number; divisionWins: number; divisionLosses: number; pointDifferential: number }> = {
-  'Plotkin':   { wins: 6, losses: 4, divisionWins: 6, divisionLosses: 0, pointDifferential: 7   },
-  'Tall Matt': { wins: 6, losses: 4, divisionWins: 3, divisionLosses: 3, pointDifferential: 46  },
-  'Dave F':    { wins: 5, losses: 5, divisionWins: 2, divisionLosses: 4, pointDifferential: 16  },
-  'Cori':      { wins: 3, losses: 7, divisionWins: 1, divisionLosses: 5, pointDifferential: -22 },
-  'Roy':       { wins: 7, losses: 3, divisionWins: 5, divisionLosses: 1, pointDifferential: -7  },
-  'Ricky':     { wins: 5, losses: 5, divisionWins: 3, divisionLosses: 3, pointDifferential: -27 },
-  'Donny':     { wins: 4, losses: 6, divisionWins: 3, divisionLosses: 3, pointDifferential: 29  },
-  'Gallman':   { wins: 4, losses: 6, divisionWins: 1, divisionLosses: 5, pointDifferential: -42 },
-}
-
-const FALL_ROSTERS: Record<string, string[]> = {
-  'Mike Brand': ['Mike Brand', 'Molloy',      'Boone',       'Staege',      'Jamie',       'Dave F'],
-  'Hertz':      ['Hertz',      'Armga',       'Marty',       'Olson',       'Scotty',      'Ricky'],
-  'Lewis':      ['Lewis',      'Klassy',      'Watts',       'Trev Neale',  'Ty S',        'Roy'],
-  'Sean F':     ['Sean F',     'Parzych',     'Alex',        'Cooper',      'Timmy',       'Younggren'],
-  'Jake B':     ['Jake B',     'Noah',        'Danny',       'Kahl',        'Hobert',      'Gallman'],
-  'Macon':      ['Macon',      'Sam Wilk',    'Ty Parman',   'TJ',          'Zack',        'Sir'],
-  'Ziemer':     ['Ziemer',     'Torin',       'Chase Kieler','Derek',       'Akim',        'Plotkin'],
-  'Nate Ray':   ['Nate Ray',   'Minnerly',    'Shane Kieler','Wedel',       'Karls',       'Donny'],
-}
-
-// Fall 2025 divisions — FreeHouse: Lewis, Sean F, Jake B, Nate Ray / Delaney's: Brand, Hertz, Macon, Ziemer
-const FALL_DIVISIONS: Record<string, Division> = {
-  'Mike Brand': Division.DELANEYS,
-  'Hertz':      Division.DELANEYS,
-  'Macon':      Division.DELANEYS,
-  'Ziemer':     Division.DELANEYS,
-  'Lewis':      Division.FREEHOUSE,
-  'Sean F':     Division.FREEHOUSE,
-  'Jake B':     Division.FREEHOUSE,
-  'Nate Ray':   Division.FREEHOUSE,
-}
-
-const SPRING_ROSTERS: Record<string, string[]> = {
-  'Cooper':  ['Cooper',  'Armga',      'Macon',      'Sean F',      'Donny',       'Ricky'],
-  'Olson':   ['Olson',   'Chandler',   'Trev Neale', 'Hertz',       'Jesse Temple','Younggren'],
-  'Derek':   ['Derek',   'Klassy',     'Ziemer',     'Lewis',       'Carson',      'Jamie'],
-  'Alex':    ['Alex',    'Nate Rohrer','Ty Parman',  'Watts',       'Boone',       'Roy'],
-  'Timmy':   ['Timmy',   'Minnerly',   'Mike Brand', 'Marty',       'Ty S',        'Plotkin'],
-  'TJ':      ['TJ',      'Noah',       'Chase Kieler','Danny',      'Wedel',       'Sir'],
-  'Zack':    ['Zack',    'Sam Wilk',   'Shravan',    'Justin',      'Willie',      'Tall Matt'],
-  'Akim':    ['Akim',    'Reetz',      'Jake B',     'Nate Ray',    'Kahl',        'Scotty'],
-}
-
-const SPRING_DIVISIONS: Record<string, Division> = {
-  'Cooper': Division.FREEHOUSE,
-  'TJ':     Division.FREEHOUSE,
-  'Zack':   Division.FREEHOUSE,
-  'Derek':  Division.FREEHOUSE,
-  'Olson':  Division.DELANEYS,
-  'Alex':   Division.DELANEYS,
-  'Timmy':  Division.DELANEYS,
-  'Akim':   Division.DELANEYS,
-}
-
-// ---------------------------------------------------------------------------
-// Schedules
-// ---------------------------------------------------------------------------
-
-interface GameEntry {
-  home: string; away: string; court: string
-  homeScore?: number; awayScore?: number
-}
-interface RoundEntry {
-  date: string; week: number; games: GameEntry[]
-}
-
-const FALL_SCHEDULE: RoundEntry[] = [
-  { date: '2025-09-14', week: 1, games: [
-    { home: 'Lewis',    away: 'Sean F',   court: 'Court 1 (Left Side) - 6:30',  homeScore: 97,  awayScore: 67  },
-    { home: 'Mike Brand', away: 'Hertz',  court: 'Court 3 (Right Side) - 6:30', homeScore: 61,  awayScore: 66  },
-    { home: 'Jake B',   away: 'Nate Ray', court: 'Court 1 (Left Side) - 7:30',  homeScore: 75,  awayScore: 77  },
-    { home: 'Macon',    away: 'Ziemer',   court: 'Court 3 (Right Side) - 7:30', homeScore: 75,  awayScore: 85  },
-  ]},
-  { date: '2025-09-21', week: 2, games: [
-    { home: 'Macon',    away: 'Hertz',    court: 'Court 1 (Left Side) - 6:30',  homeScore: 91,  awayScore: 94  },
-    { home: 'Jake B',   away: 'Sean F',   court: 'Court 3 (Right Side) - 6:30', homeScore: 78,  awayScore: 69  },
-    { home: 'Mike Brand', away: 'Ziemer', court: 'Court 1 (Left Side) - 7:30',  homeScore: 85,  awayScore: 80  },
-    { home: 'Lewis',    away: 'Nate Ray', court: 'Court 3 (Right Side) - 7:30', homeScore: 74,  awayScore: 67  },
-  ]},
-  { date: '2025-09-28', week: 3, games: [
-    { home: 'Lewis',    away: 'Jake B',   court: 'Court 1 (Left Side) - 6:30',  homeScore: 61,  awayScore: 68  },
-    { home: 'Nate Ray', away: 'Sean F',   court: 'Court 3 (Right Side) - 6:30', homeScore: 73,  awayScore: 61  },
-    { home: 'Mike Brand', away: 'Macon',  court: 'Court 1 (Left Side) - 7:30',  homeScore: 76,  awayScore: 77  },
-    { home: 'Ziemer',   away: 'Hertz',    court: 'Court 3 (Right Side) - 7:30', homeScore: 83,  awayScore: 81  },
-  ]},
-  { date: '2025-10-05', week: 4, games: [
-    { home: 'Jake B',   away: 'Mike Brand', court: 'Court 1 (Left Side) - 6:30', homeScore: 89, awayScore: 79  },
-    { home: 'Sean F',   away: 'Ziemer',   court: 'Court 3 (Right Side) - 6:30', homeScore: 88,  awayScore: 101 },
-    { home: 'Lewis',    away: 'Hertz',    court: 'Court 1 (Left Side) - 7:30',  homeScore: 69,  awayScore: 80  },
-    { home: 'Nate Ray', away: 'Macon',    court: 'Court 3 (Right Side) - 7:30', homeScore: 88,  awayScore: 91  },
-  ]},
-  { date: '2025-10-12', week: 5, games: [
-    { home: 'Lewis',    away: 'Macon',    court: 'Court 1 (Left Side) - 6:30',  homeScore: 84,  awayScore: 81  },
-    { home: 'Nate Ray', away: 'Hertz',    court: 'Court 3 (Right Side) - 6:30', homeScore: 66,  awayScore: 75  },
-    { home: 'Jake B',   away: 'Ziemer',   court: 'Court 1 (Left Side) - 7:30',  homeScore: 57,  awayScore: 84  },
-    { home: 'Sean F',   away: 'Mike Brand', court: 'Court 3 (Right Side) - 7:30', homeScore: 104, awayScore: 103 },
-  ]},
-  { date: '2025-10-19', week: 6, games: [
-    { home: 'Nate Ray', away: 'Ziemer',   court: 'Court 1 (Left Side) - 6:30',  homeScore: 73,  awayScore: 86  },
-    { home: 'Lewis',    away: 'Mike Brand', court: 'Court 3 (Right Side) - 6:30', homeScore: 110, awayScore: 87 },
-    { home: 'Sean F',   away: 'Hertz',    court: 'Court 1 (Left Side) - 7:30',  homeScore: 78,  awayScore: 101 },
-    { home: 'Jake B',   away: 'Macon',    court: 'Court 3 (Right Side) - 7:30', homeScore: 83,  awayScore: 73  },
-  ]},
-  { date: '2025-10-26', week: 7, games: [
-    { home: 'Sean F',   away: 'Macon',    court: 'Court 1 (Left Side) - 6:30',  homeScore: 81,  awayScore: 96  },
-    { home: 'Jake B',   away: 'Hertz',    court: 'Court 3 (Right Side) - 6:30', homeScore: 53,  awayScore: 60  },
-    { home: 'Nate Ray', away: 'Mike Brand', court: 'Court 1 (Left Side) - 7:30', homeScore: 78, awayScore: 70  },
-    { home: 'Lewis',    away: 'Ziemer',   court: 'Court 3 (Right Side) - 7:30', homeScore: 91,  awayScore: 88  },
-  ]},
-  { date: '2025-11-02', week: 8, games: [
-    { home: 'Ziemer',   away: 'Macon',    court: 'Court 1 (Left Side) - 6:30',  homeScore: 80,  awayScore: 92  },
-    { home: 'Nate Ray', away: 'Jake B',   court: 'Court 3 (Right Side) - 6:30', homeScore: 76,  awayScore: 53  },
-    { home: 'Hertz',    away: 'Mike Brand', court: 'Court 1 (Left Side) - 7:30', homeScore: 79, awayScore: 62  },
-    { home: 'Sean F',   away: 'Lewis',    court: 'Court 3 (Right Side) - 7:30', homeScore: 62,  awayScore: 78  },
-  ]},
-  { date: '2025-11-09', week: 9, games: [
-    { home: 'Nate Ray', away: 'Lewis',    court: 'Court 1 (Left Side) - 6:30',  homeScore: 78,  awayScore: 80  },
-    { home: 'Ziemer',   away: 'Mike Brand', court: 'Court 3 (Right Side) - 6:30', homeScore: 88, awayScore: 90 },
-    { home: 'Sean F',   away: 'Jake B',   court: 'Court 1 (Left Side) - 7:30',  homeScore: 93,  awayScore: 101 },
-    { home: 'Hertz',    away: 'Macon',    court: 'Court 3 (Right Side) - 7:30', homeScore: 90,  awayScore: 92  },
-  ]},
-  { date: '2025-11-16', week: 10, games: [
-    { home: 'Hertz',    away: 'Ziemer',   court: 'Court 1 (Left Side) - 6:30',  homeScore: 89,  awayScore: 94  },
-    { home: 'Macon',    away: 'Mike Brand', court: 'Court 3 (Right Side) - 6:30', homeScore: 75, awayScore: 61 },
-    { home: 'Sean F',   away: 'Nate Ray', court: 'Court 1 (Left Side) - 7:30',  homeScore: 69,  awayScore: 99  },
-    { home: 'Jake B',   away: 'Lewis',    court: 'Court 3 (Right Side) - 7:30', homeScore: 91,  awayScore: 95  },
-  ]},
-]
-
-const SPRING_SCHEDULE: RoundEntry[] = [
-  { date: '2026-01-18', week: 1, games: [
-    { home: 'TJ',     away: 'Zack',   court: 'Court 1 (Left Side) - 6:30',  homeScore: 73,  awayScore: 70  },
-    { home: 'Derek',  away: 'Cooper', court: 'Court 3 (Right Side) - 6:30', homeScore: 85,  awayScore: 70  },
-    { home: 'Olson',  away: 'Akim',   court: 'Court 1 (Left Side) - 7:30',  homeScore: 90,  awayScore: 86  },
-    { home: 'Alex',   away: 'Timmy',  court: 'Court 3 (Right Side) - 7:30', homeScore: 67,  awayScore: 70  },
-  ]},
-  { date: '2026-01-25', week: 2, games: [
-    { home: 'Alex',   away: 'Akim',   court: 'Court 1 (Left Side) - 6:30',  homeScore: 106, awayScore: 70  },
-    { home: 'Olson',  away: 'Timmy',  court: 'Court 3 (Right Side) - 6:30', homeScore: 70,  awayScore: 65  },
-    { home: 'Derek',  away: 'Zack',   court: 'Court 1 (Left Side) - 7:30',  homeScore: 81,  awayScore: 90  },
-    { home: 'TJ',     away: 'Cooper', court: 'Court 3 (Right Side) - 7:30', homeScore: 85,  awayScore: 90  },
-  ]},
-  { date: '2026-02-01', week: 3, games: [
-    { home: 'TJ',     away: 'Derek',  court: 'Court 1 (Left Side) - 6:30',  homeScore: 81,  awayScore: 65  },
-    { home: 'Cooper', away: 'Zack',   court: 'Court 3 (Right Side) - 6:30', homeScore: 85,  awayScore: 65  },
-    { home: 'Olson',  away: 'Alex',   court: 'Court 1 (Left Side) - 7:30',  homeScore: 69,  awayScore: 97  },
-    { home: 'Timmy',  away: 'Akim',   court: 'Court 3 (Right Side) - 7:30', homeScore: 69,  awayScore: 79  },
-  ]},
-  { date: '2026-02-15', week: 4, games: [
-    { home: 'Alex',   away: 'Derek',  court: 'Court 1 (Left Side) - 6:30',  homeScore: 111, awayScore: 85  },
-    { home: 'Olson',  away: 'TJ',     court: 'Court 3 (Right Side) - 6:30', homeScore: 60,  awayScore: 81  },
-    { home: 'Timmy',  away: 'Cooper', court: 'Court 1 (Left Side) - 7:30',  homeScore: 74,  awayScore: 85  },
-    { home: 'Akim',   away: 'Zack',   court: 'Court 3 (Right Side) - 7:30', homeScore: 100, awayScore: 98  },
-  ]},
-  { date: '2026-02-22', week: 5, games: [
-    { home: 'Cooper', away: 'Akim',   court: 'Court 1 (Left Side) - 6:30',  homeScore: 71,  awayScore: 89  },
-    { home: 'Derek',  away: 'Timmy',  court: 'Court 3 (Right Side) - 6:30', homeScore: 100, awayScore: 77  },
-    { home: 'Zack',   away: 'Olson',  court: 'Court 1 (Left Side) - 7:30',  homeScore: 62,  awayScore: 74  },
-    { home: 'TJ',     away: 'Alex',   court: 'Court 3 (Right Side) - 7:30', homeScore: 62,  awayScore: 64  },
-  ]},
-  { date: '2026-03-01', week: 6, games: [
-    { home: 'Alex',   away: 'Zack',   court: 'Court 1 (Left Side) - 6:30',  homeScore: 83,  awayScore: 75  },
-    { home: 'Olson',  away: 'Cooper', court: 'Court 3 (Right Side) - 6:30', homeScore: 68,  awayScore: 82  },
-    { home: 'Timmy',  away: 'TJ',     court: 'Court 1 (Left Side) - 7:30',  homeScore: 77,  awayScore: 99  },
-    { home: 'Akim',   away: 'Derek',  court: 'Court 3 (Right Side) - 7:30', homeScore: 75,  awayScore: 74  },
-  ]},
-  { date: '2026-03-08', week: 7, games: [
-    { home: 'Zack',   away: 'Timmy',  court: 'Court 1 (Left Side) - 6:30' },
-    { home: 'TJ',     away: 'Akim',   court: 'Court 3 (Right Side) - 6:30' },
-    { home: 'Cooper', away: 'Alex',   court: 'Court 1 (Left Side) - 7:30' },
-    { home: 'Derek',  away: 'Olson',  court: 'Court 3 (Right Side) - 7:30' },
-  ]},
-  { date: '2026-03-15', week: 8, games: [
-    { home: 'Akim',   away: 'Olson',  court: 'Court 1 (Left Side) - 6:30' },
-    { home: 'Timmy',  away: 'Alex',   court: 'Court 3 (Right Side) - 6:30' },
-    { home: 'Cooper', away: 'Derek',  court: 'Court 1 (Left Side) - 7:30' },
-    { home: 'Zack',   away: 'TJ',     court: 'Court 3 (Right Side) - 7:30' },
-  ]},
-  { date: '2026-03-29', week: 9, games: [
-    { home: 'Cooper', away: 'TJ',     court: 'Court 1 (Left Side) - 6:30' },
-    { home: 'Zack',   away: 'Derek',  court: 'Court 3 (Right Side) - 6:30' },
-    { home: 'Timmy',  away: 'Olson',  court: 'Court 1 (Left Side) - 7:30' },
-    { home: 'Akim',   away: 'Alex',   court: 'Court 3 (Right Side) - 7:30' },
-  ]},
-  { date: '2026-04-12', week: 10, games: [
-    { home: 'Akim',   away: 'Timmy',  court: 'Court 1 (Left Side) - 6:30' },
-    { home: 'Alex',   away: 'Olson',  court: 'Court 3 (Right Side) - 6:30' },
-    { home: 'Derek',  away: 'TJ',     court: 'Court 1 (Left Side) - 7:30' },
-    { home: 'Zack',   away: 'Cooper', court: 'Court 3 (Right Side) - 7:30' },
-  ]},
-]
-
-// ---------------------------------------------------------------------------
-// Standings
-// ---------------------------------------------------------------------------
-
-const FALL_STANDINGS: Record<string, {
-  wins: number; losses: number; divisionWins: number; divisionLosses: number; pointDifferential: number
-}> = {
-  'Lewis':      { wins: 8, losses: 2, divisionWins: 5, divisionLosses: 1, pointDifferential: 70   },
-  'Nate Ray':   { wins: 5, losses: 5, divisionWins: 4, divisionLosses: 2, pointDifferential: 41   },
-  'Jake B':     { wins: 5, losses: 5, divisionWins: 3, divisionLosses: 3, pointDifferential: -19  },
-  'Sean F':     { wins: 1, losses: 9, divisionWins: 0, divisionLosses: 6, pointDifferential: -155 },
-  'Hertz':      { wins: 7, losses: 3, divisionWins: 3, divisionLosses: 3, pointDifferential: 66   },
-  'Macon':      { wins: 6, losses: 4, divisionWins: 4, divisionLosses: 2, pointDifferential: 21   },
-  'Ziemer':     { wins: 6, losses: 4, divisionWins: 3, divisionLosses: 3, pointDifferential: 48   },
-  'Mike Brand': { wins: 2, losses: 8, divisionWins: 2, divisionLosses: 4, pointDifferential: -72  },
-}
-
-const SPRING_STANDINGS: Record<string, {
-  wins: number; losses: number; divisionWins: number; divisionLosses: number; pointDifferential: number
-}> = {
-  'Cooper': { wins: 4, losses: 2, divisionWins: 2, divisionLosses: 1, pointDifferential: 17  },
-  'TJ':     { wins: 4, losses: 2, divisionWins: 2, divisionLosses: 1, pointDifferential: 55  },
-  'Derek':  { wins: 2, losses: 4, divisionWins: 1, divisionLosses: 2, pointDifferential: -14 },
-  'Zack':   { wins: 1, losses: 5, divisionWins: 1, divisionLosses: 2, pointDifferential: -36 },
-  'Alex':   { wins: 5, losses: 1, divisionWins: 2, divisionLosses: 1, pointDifferential: 97  },
-  'Akim':   { wins: 4, losses: 2, divisionWins: 1, divisionLosses: 2, pointDifferential: -9  },
-  'Olson':  { wins: 3, losses: 3, divisionWins: 2, divisionLosses: 1, pointDifferential: -42 },
-  'Timmy':  { wins: 1, losses: 5, divisionWins: 1, divisionLosses: 2, pointDifferential: -68 },
-}
-
-// ---------------------------------------------------------------------------
-// Main seed
-// ---------------------------------------------------------------------------
-
 async function main() {
-  console.log('🌱 Starting seed...')
+  console.log("🏀 MBA Seed starting...\n");
 
-  await prisma.careerStat.deleteMany()
-  await prisma.sessionStat.deleteMany()
-  await prisma.gameStat.deleteMany()
-  await prisma.game.deleteMany()
-  await prisma.teamRoster.deleteMany()
-  await prisma.team.deleteMany()
-  await prisma.session.deleteMany()
-  await prisma.player.deleteMany()
-  console.log('✅ Cleared existing data')
+  console.log("Clearing existing data...");
+  await prisma.careerStat.deleteMany();
+  await prisma.sessionStat.deleteMany();
+  await prisma.gameStat.deleteMany();
+  await prisma.game.deleteMany();
+  await prisma.teamRoster.deleteMany();
+  await prisma.team.deleteMany();
+  await prisma.subPlayer.deleteMany();
+  await prisma.session.deleteMany();
+  await prisma.player.deleteMany();
+  console.log("Done.\n");
 
-  // Parse stat sheets
-  const s23StatsWb  = XLSX.readFile('prisma/data/Spring_2023_MBA_Stats.xlsx')
-  const f23StatsWb  = XLSX.readFile('prisma/data/Fall_2023_MBA_Stats.xlsx')
-  const s24StatsWb  = XLSX.readFile('prisma/data/Spring_2024_MBA_Stats.xlsx')
-  const f24StatsWb  = XLSX.readFile('prisma/data/Fall_2024_MBA_Stats.xlsx')
-  const s25StatsWb  = XLSX.readFile('prisma/data/Spring_2025_MBA_Stats.xlsx')
-  const fallStatsWb   = XLSX.readFile('prisma/data/Fall_2025_MBA_Stats.xlsx')
-  const springStatsWb = XLSX.readFile('prisma/data/Spring_2026_MBA_Stats_1.xlsx')
+  const playerIdByDisplay = new Map<string, string>();
 
-  const S23_STAT_SHEETS: Record<string, string> = {
-    'Sean F': 'SeanF', 'Sam P': 'SamP', 'Lewis': 'Nate', 'Tyler': 'Wedel',
-    'Ziemer': 'Ziemer', 'Justin': 'Justin', 'Connor': 'Connor', 'Danny': 'Danny',
-  }
-  const s23Stats: Record<string, GameBlock[]> = {}
-  for (const [cap, sheet] of Object.entries(S23_STAT_SHEETS)) {
-    s23Stats[cap] = parseTeamGames(s23StatsWb.Sheets[sheet])
-  }
-
-  const F23_STAT_SHEETS: Record<string, string> = {
-    'Ricky': 'Ricky', 'Don Thompson': 'Don', 'Gallman': 'Gallman', 'Pat': 'Pat',
-    'Winsor': 'Winsor', 'Roy': 'Roy', 'BJ': 'BJ', 'Towns': 'Towns',
-  }
-  const f23Stats: Record<string, GameBlock[]> = {}
-  for (const [cap, sheet] of Object.entries(F23_STAT_SHEETS)) {
-    f23Stats[cap] = parseTeamGames(f23StatsWb.Sheets[sheet])
-  }
-
-  const S24_STAT_SHEETS: Record<string, string> = {
-    'Wedel': 'Wedel', 'Danny': 'Danny', 'Tyler Olson': 'Olson', 'Tordoff': 'Tordoff',
-    'Lewis': 'Lewis', 'Hertz': 'Hertz', 'Ziemer': 'Ziemer', 'Sean F': 'Sean F',
-  }
-  const s24Stats: Record<string, GameBlock[]> = {}
-  for (const [cap, sheet] of Object.entries(S24_STAT_SHEETS)) {
-    s24Stats[cap] = parseTeamGames(s24StatsWb.Sheets[sheet])
-  }
-
-  const F24_STAT_SHEETS: Record<string, string> = {
-    'Sir': 'Sir', 'TJ': 'TJ', 'Cooper': 'Cooper', 'Akim': 'Akim',
-    'Younggren': 'Younggren', 'Karls': 'Karls', 'Towns': 'Towns', 'Neale': 'Neale',
-  }
-  const f24Stats: Record<string, GameBlock[]> = {}
-  for (const [cap, sheet] of Object.entries(F24_STAT_SHEETS)) {
-    f24Stats[cap] = parseTeamGames(f24StatsWb.Sheets[sheet])
-  }
-
-  const S25_STAT_SHEETS: Record<string, string> = {
-    'Plotkin': 'Plotkin', 'Donny': 'Donny', 'Dave F': 'Dave F', 'Ricky': 'Ricky',
-    'Cori': 'Cori', 'Roy': 'Roy', 'Tall Matt': 'Tall Matt', 'Gallman': 'Gallman',
-  }
-  const s25Stats: Record<string, GameBlock[]> = {}
-  for (const [cap, sheet] of Object.entries(S25_STAT_SHEETS)) {
-    s25Stats[cap] = parseTeamGames(s25StatsWb.Sheets[sheet])
-  }
-
-  // Fall stat sheets use captain last name as sheet name
-  const FALL_STAT_SHEETS: Record<string, string> = {
-    'Mike Brand': 'Brand', 'Hertz': 'Hertz', 'Lewis': 'Lewis', 'Sean F': 'Sean F',
-    'Jake B': 'Jake B', 'Macon': 'Macon', 'Ziemer': 'Ziemer', 'Nate Ray': 'Nate Ray',
-  }
-  const fallStats: Record<string, GameBlock[]> = {}
-  for (const [cap, sheet] of Object.entries(FALL_STAT_SHEETS)) {
-    fallStats[cap] = parseTeamGames(fallStatsWb.Sheets[sheet])
-  }
-
-  const SPRING_STAT_SHEETS: Record<string, string> = {
-    'Cooper': 'Cooper', 'Olson': 'Tyler Olson', 'Derek': 'Derek',
-    'Alex': 'Alex', 'Timmy': 'Timmy', 'TJ': 'TJ', 'Zack': 'Zack', 'Akim': 'Akim',
-  }
-  const springStats: Record<string, GameBlock[]> = {}
-  for (const [cap, sheet] of Object.entries(SPRING_STAT_SHEETS)) {
-    springStats[cap] = parseTeamGames(springStatsWb.Sheets[sheet])
-  }
-
-  // Collect all unique canonical displayNames
-  const allNames = new Set<string>()
-  const allRosters = [
-    ...Object.values(S23_ROSTERS), ...Object.values(F23_ROSTERS),
-    ...Object.values(S24_ROSTERS), ...Object.values(F24_ROSTERS),
-    ...Object.values(S25_ROSTERS),
-    ...Object.values(FALL_ROSTERS), ...Object.values(SPRING_ROSTERS),
-  ]
-  for (const players of allRosters) players.forEach(p => { const cn = canonical(p); if (!isSub(cn)) allNames.add(cn) })
-
-  const allStatMaps = [s23Stats, f23Stats, s24Stats, f24Stats, s25Stats, fallStats, springStats]
-  for (const statMap of allStatMaps) {
-    for (const games of Object.values(statMap)) {
-      for (const g of games) g.players.forEach(p => {
-        const cn = canonical(p.name)
-        if (!isSub(cn)) allNames.add(cn)
-      })
-    }
-  }
-
-  // Create Players
-  const playerIdMap: Record<string, string> = {}
-  for (const displayName of allNames) {
-    if (isSub(displayName)) continue
-    const { firstName, lastName } = getNames(displayName)
+  async function getOrCreatePlayer(displayName: string): Promise<string> {
+    if (playerIdByDisplay.has(displayName)) return playerIdByDisplay.get(displayName)!;
+    const names = PLAYER_NAMES[displayName];
+    if (!names) throw new Error(`No PLAYER_NAMES entry for displayName: "${displayName}"`);
     const player = await prisma.player.create({
-      data: { firstName, lastName, displayName, isActive: true },
-    })
-    playerIdMap[displayName] = player.id
+      data: { firstName: names.firstName, lastName: names.lastName, displayName },
+    });
+    playerIdByDisplay.set(displayName, player.id);
+    return player.id;
   }
-  console.log(`✅ Created ${allNames.size} players`)
 
-  // ---- Helper: insert game stats ----
-  async function insertGameStats(gameId: string, teamId: string, block: GameBlock) {
-    for (const p of block.players) {
-      const cname = canonical(p.name)
-      const pid = playerIdMap[cname]
-      if (!pid) { console.warn(`⚠️  Unknown player: "${p.name}" → "${cname}"`); continue }
-      const exists = await prisma.gameStat.findUnique({ where: { gameId_playerId: { gameId, playerId: pid } } })
-      if (exists) continue
-      await prisma.gameStat.create({
-        data: {
-          gameId, teamId, playerId: pid,
-          fgMade: p.fgMade, fgAttempted: p.fgAttempted,
-          threesMade: p.threesMade, threesAttempted: p.threesAttempted,
-          ftMade: p.ftMade, ftAttempted: p.ftAttempted,
-          points: p.points, rebounds: p.rebounds, assists: p.assists,
-          blocks: p.blocks, steals: p.steals, turnovers: p.turnovers,
-        },
-      })
+  for (const sess of SESSIONS) {
+    console.log(`\n📅 Seeding ${sess.name}...`);
+
+    // ── 1. Session ────────────────────────────────────────────────────────
+    const session = await prisma.session.create({
+      data: {
+        name: sess.name,
+        period: sess.period as SessionPeriod,
+        year: sess.year,
+        startDate: sess.startDate,
+        endDate: sess.endDate,
+        isActive: sess.key === "SP26",
+      },
+    });
+
+    // ── 2. Teams + Rosters ────────────────────────────────────────────────
+    const teamIdByCaptain = new Map<string, string>(); // captainDisplay → team.id
+    const teamIdBySheet   = new Map<string, string>(); // sheet name → team.id
+
+    const allTeams = [
+      ...sess.freehouse.map(t => ({ ...t, division: "FREEHOUSE" as Division })),
+      ...sess.delaneys.map(t => ({ ...t, division: "DELANEYS" as Division })),
+    ];
+
+    for (const td of allTeams) {
+      const captainId = await getOrCreatePlayer(td.captainDisplay);
+      const team = await prisma.team.create({
+        data: { sessionId: session.id, captainId, division: td.division },
+      });
+      teamIdByCaptain.set(td.captainDisplay, team.id);
+      teamIdBySheet.set(td.sheet, team.id);
+      await prisma.teamRoster.create({ data: { teamId: team.id, playerId: captainId } });
+      for (const dn of td.roster) {
+        const pid = await getOrCreatePlayer(dn);
+        await prisma.teamRoster.create({ data: { teamId: team.id, playerId: pid } });
+      }
     }
-  }
 
-  // ---- Helper: build session stats ----
-  async function buildSessionStats(sessionId: string, statMap: Record<string, GameBlock[]>) {
-    type Agg = { gamesPlayed: number; fgMade: number; fgAttempted: number; threesMade: number; threesAttempted: number; ftMade: number; ftAttempted: number; points: number; rebounds: number; assists: number; blocks: number; steals: number; turnovers: number }
-    const aggs: Record<string, Agg> = {}
-    for (const games of Object.values(statMap)) {
-      for (const g of games) {
-        for (const p of g.players) {
-          const cn = canonical(p.name)
-          if (!playerIdMap[cn]) continue
-          if (!aggs[cn]) aggs[cn] = { gamesPlayed: 0, fgMade: 0, fgAttempted: 0, threesMade: 0, threesAttempted: 0, ftMade: 0, ftAttempted: 0, points: 0, rebounds: 0, assists: 0, blocks: 0, steals: 0, turnovers: 0 }
-          const a = aggs[cn]
-          a.gamesPlayed++; a.fgMade += p.fgMade; a.fgAttempted += p.fgAttempted
-          a.threesMade += p.threesMade; a.threesAttempted += p.threesAttempted
-          a.ftMade += p.ftMade; a.ftAttempted += p.ftAttempted
-          a.points += p.points; a.rebounds += p.rebounds; a.assists += p.assists
-          a.blocks += p.blocks; a.steals += p.steals; a.turnovers += p.turnovers
+    // ── 3. Games from schedule workbook ──────────────────────────────────
+    const wbSched   = loadWorkbook(sess.workbookFile);
+    const schedGames = parseSchedule(wbSched, sess.scheduleSheet);
+
+    for (const sg of schedGames) {
+      const homeTeamId = teamIdByCaptain.get(sg.homeCapt);
+      const awayTeamId = teamIdByCaptain.get(sg.awayCapt);
+      if (!homeTeamId || !awayTeamId) {
+        console.warn(`  ⚠️  [${sess.key}] Unknown team in schedule: "${sg.homeCapt}" vs "${sg.awayCapt}"`);
+        continue;
+      }
+
+      const hasScore = sg.homeScore !== null && sg.awayScore !== null;
+      const status: GameStatus = hasScore ? "FINAL" : "SCHEDULED";
+
+      await prisma.game.create({
+        data: {
+          sessionId:   session.id,
+          homeTeamId,
+          awayTeamId,
+          scheduledAt: sg.scheduledAt,
+          court:       sg.court,
+          week:        sg.isPlayoff ? null : sg.week,
+          isPlayoff:   sg.isPlayoff,
+          playoffRound: sg.playoffRound,
+          status,
+          homeScore:   sg.homeScore ?? 0,
+          awayScore:   sg.awayScore ?? 0,
+        },
+      });
+    }
+
+    // ── 4. GameStats from stat sheets ────────────────────────────────────
+    // For each team sheet, map its N game blocks (in order) to the N scheduled
+    // regular-season games for that team (ordered by week, then scheduledAt).
+    const wbStats = loadWorkbook(sess.statFile);
+
+    for (const td of allTeams) {
+      if (!wbStats.SheetNames.includes(td.sheet)) {
+        console.warn(`  ⚠️  Stat sheet "${td.sheet}" not found in ${sess.statFile}`);
+        continue;
+      }
+
+      const teamId = teamIdBySheet.get(td.sheet)!;
+
+      // Ordered list of regular-season game IDs for this team
+      const teamGames = await prisma.game.findMany({
+        where: {
+          sessionId: session.id,
+          isPlayoff: false,
+          OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }],
+        },
+        orderBy: [{ week: "asc" }, { scheduledAt: "asc" }],
+      });
+
+      const ws = wbStats.Sheets[td.sheet];
+      const gameBlocks = parseStatSheet(ws);
+
+      for (let i = 0; i < gameBlocks.length; i++) {
+        const block  = gameBlocks[i];
+        const game   = teamGames[i];
+
+        if (!game) {
+          console.warn(`  ⚠️  [${sess.key}][${td.sheet}] No scheduled game for stat block ${i + 1} ("${block.label}")`);
+          continue;
+        }
+
+        for (const row of block.rows) {
+          // Skip sub annotations and explicit nulls silently
+          if (/\(sub\)/i.test(row.name)) continue;
+          const display = canonical(row.name, sess.key, td.sheet);
+          if (display === null && ALIASES[row.name.trim()] === null) continue; // explicit skip
+          if (!display) {
+            console.warn(`  ⚠️  [${sess.key}][${td.sheet}] Unresolved name: "${row.name}"`);
+            continue;
+          }
+
+          // Siebert in FA25 is a long-term sub for Shane Kieler (Nate Ray's team).
+          // His stats are always credited to Nate Ray's teamId regardless of which
+          // sheet he appears on.
+          let statTeamId = teamId;
+          if (sess.key === "FA25" && display === "Siebert") {
+            statTeamId = teamIdBySheet.get("Nate Ray")!;
+          }
+
+          const playerId = await getOrCreatePlayer(display);
+
+          const existing = await prisma.gameStat.findUnique({
+            where: { gameId_playerId: { gameId: game.id, playerId } },
+          });
+          if (existing) continue;
+
+          await prisma.gameStat.create({
+            data: {
+              gameId:         game.id,
+              teamId:         statTeamId,
+              playerId,
+              fgMade:          row.fgm,
+              fgAttempted:     row.fga,
+              threesMade:      row.t3fgm,
+              threesAttempted: row.t3fga,
+              ftMade:          row.ftm,
+              ftAttempted:     row.fta,
+              points:          row.pts,
+              rebounds:        row.reb,
+              assists:         row.ast,
+              blocks:          row.blk,
+              steals:          row.stl,
+              turnovers:       row.tov,
+            },
+          });
         }
       }
     }
-    for (const [dn, agg] of Object.entries(aggs)) {
-      await prisma.sessionStat.create({ data: { sessionId, playerId: playerIdMap[dn], ...agg } })
+
+    // ── 5. Standings (regular season only, from schedule scores) ─────────
+    const finalGames = await prisma.game.findMany({
+      where: { sessionId: session.id, status: "FINAL", isPlayoff: false },
+      include: { homeTeam: true, awayTeam: true },
+    });
+
+    type Accum = { wins: number; losses: number; divisionWins: number; divisionLosses: number; pointDifferential: number };
+    const standings = new Map<string, Accum>();
+    const init = (id: string) => { if (!standings.has(id)) standings.set(id, { wins:0,losses:0,divisionWins:0,divisionLosses:0,pointDifferential:0 }); };
+
+    for (const g of finalGames) {
+      init(g.homeTeamId); init(g.awayTeamId);
+      const home = standings.get(g.homeTeamId)!;
+      const away = standings.get(g.awayTeamId)!;
+      const sameDivision = g.homeTeam.division === g.awayTeam.division;
+      const diff = g.homeScore - g.awayScore;
+      home.pointDifferential += diff;
+      away.pointDifferential -= diff;
+      if (g.homeScore > g.awayScore) {
+        home.wins++; away.losses++;
+        if (sameDivision) { home.divisionWins++; away.divisionLosses++; }
+      } else if (g.awayScore > g.homeScore) {
+        away.wins++; home.losses++;
+        if (sameDivision) { away.divisionWins++; home.divisionLosses++; }
+      }
     }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Spring 2023
-  // ---------------------------------------------------------------------------
-
-  const spring2023 = await prisma.session.create({
-    data: {
-      name: 'Spring 2023', period: SessionPeriod.SPRING, year: 2023,
-      startDate: new Date('2023-02-19'), endDate: new Date('2023-05-21'), isActive: false,
-    },
-  })
-
-  const s23TeamIds: Record<string, string> = {}
-  for (const [cap, players] of Object.entries(S23_ROSTERS)) {
-    const team = await prisma.team.create({
-      data: { sessionId: spring2023.id, captainId: playerIdMap[canonical(cap)], division: S23_DIVISIONS[cap], ...S23_STANDINGS[cap] },
-    })
-    s23TeamIds[cap] = team.id
-    for (const pName of players) {
-      const pid = playerIdMap[canonical(pName)]
-      if (!pid) { console.warn(`⚠️  No player id for S23 roster: ${pName}`); continue }
-      await prisma.teamRoster.create({ data: { teamId: team.id, playerId: pid, isSub: false } })
+    for (const [teamId, s] of standings) {
+      await prisma.team.update({ where: { id: teamId }, data: s });
     }
-  }
 
-  for (const round of S23_SCHEDULE) {
-    for (const g of round.games) {
-      const game = await prisma.game.create({
+    // ── 6. Session Stats ──────────────────────────────────────────────────
+    const allGameStats = await prisma.gameStat.findMany({
+      where: { game: { sessionId: session.id } },
+    });
+
+    const statsByPlayer = new Map<string, typeof allGameStats>();
+    for (const gs of allGameStats) {
+      if (!statsByPlayer.has(gs.playerId)) statsByPlayer.set(gs.playerId, []);
+      statsByPlayer.get(gs.playerId)!.push(gs);
+    }
+
+    for (const [playerId, stats] of statsByPlayer) {
+      await prisma.sessionStat.create({
         data: {
-          sessionId: spring2023.id,
-          homeTeamId: s23TeamIds[g.home], awayTeamId: s23TeamIds[g.away],
-          scheduledAt: new Date(round.date), court: g.court, week: round.week,
-          isPlayoff: round.week >= 11,
-          playoffRound: round.week === 11 ? 1 : round.week === 12 ? 3 : null,
-          status: g.homeScore != null ? GameStatus.FINAL : GameStatus.SCHEDULED,
-          homeScore: g.homeScore ?? 0, awayScore: g.awayScore ?? 0,
+          sessionId: session.id,
+          playerId,
+          gamesPlayed:     stats.length,
+          fgMade:          stats.reduce((s,g) => s+g.fgMade,          0),
+          fgAttempted:     stats.reduce((s,g) => s+g.fgAttempted,     0),
+          threesMade:      stats.reduce((s,g) => s+g.threesMade,      0),
+          threesAttempted: stats.reduce((s,g) => s+g.threesAttempted, 0),
+          ftMade:          stats.reduce((s,g) => s+g.ftMade,          0),
+          ftAttempted:     stats.reduce((s,g) => s+g.ftAttempted,     0),
+          points:          stats.reduce((s,g) => s+g.points,          0),
+          rebounds:        stats.reduce((s,g) => s+g.rebounds,        0),
+          assists:         stats.reduce((s,g) => s+g.assists,         0),
+          blocks:          stats.reduce((s,g) => s+g.blocks,          0),
+          steals:          stats.reduce((s,g) => s+g.steals,          0),
+          turnovers:       stats.reduce((s,g) => s+g.turnovers,       0),
         },
-      })
-      if (g.homeScore == null) continue
-      const homeBlock = s23Stats[g.home]?.find(b => b.gameNum === round.week)
-      const awayBlock = s23Stats[g.away]?.find(b => b.gameNum === round.week)
-      if (homeBlock) await insertGameStats(game.id, game.homeTeamId, homeBlock)
-      if (awayBlock) await insertGameStats(game.id, game.awayTeamId, awayBlock)
+      });
     }
-  }
-  console.log('✅ Spring 2023 games + stats')
-  await buildSessionStats(spring2023.id, s23Stats)
-  console.log('✅ Spring 2023 session stats')
 
-  // ---------------------------------------------------------------------------
-  // Fall 2023
-  // ---------------------------------------------------------------------------
-
-  const fall2023 = await prisma.session.create({
-    data: {
-      name: 'Fall 2023', period: SessionPeriod.FALL, year: 2023,
-      startDate: new Date('2023-09-17'), endDate: new Date('2023-11-19'), isActive: false,
-    },
-  })
-
-  const f23TeamIds: Record<string, string> = {}
-  for (const [cap, players] of Object.entries(F23_ROSTERS)) {
-    const team = await prisma.team.create({
-      data: { sessionId: fall2023.id, captainId: playerIdMap[canonical(cap)], division: F23_DIVISIONS[cap], ...F23_STANDINGS[cap] },
-    })
-    f23TeamIds[cap] = team.id
-    for (const pName of players) {
-      const pid = playerIdMap[canonical(pName)]
-      if (!pid) { console.warn(`⚠️  No player id for F23 roster: ${pName}`); continue }
-      await prisma.teamRoster.create({ data: { teamId: team.id, playerId: pid, isSub: false } })
-    }
+    const regGames = schedGames.filter(g => !g.isPlayoff).length;
+    const poGames  = schedGames.filter(g => g.isPlayoff).length;
+    console.log(`  ✅ ${sess.name} — ${regGames} reg + ${poGames} playoff games, ${allGameStats.length} stat rows`);
   }
 
-  for (const round of F23_SCHEDULE) {
-    for (const g of round.games) {
-      const game = await prisma.game.create({
-        data: {
-          sessionId: fall2023.id,
-          homeTeamId: f23TeamIds[g.home], awayTeamId: f23TeamIds[g.away],
-          scheduledAt: new Date(round.date), court: g.court, week: round.week,
-          isPlayoff: false,
-          status: g.homeScore != null ? GameStatus.FINAL : GameStatus.SCHEDULED,
-          homeScore: g.homeScore ?? 0, awayScore: g.awayScore ?? 0,
-        },
-      })
-      if (g.homeScore == null) continue
-      const homeBlock = f23Stats[g.home]?.find(b => b.gameNum === round.week)
-      const awayBlock = f23Stats[g.away]?.find(b => b.gameNum === round.week)
-      if (homeBlock) await insertGameStats(game.id, game.homeTeamId, homeBlock)
-      if (awayBlock) await insertGameStats(game.id, game.awayTeamId, awayBlock)
-    }
-  }
-  console.log('✅ Fall 2023 games + stats')
-  await buildSessionStats(fall2023.id, f23Stats)
-  console.log('✅ Fall 2023 session stats')
-
-  // ---------------------------------------------------------------------------
-  // Spring 2024
-  // ---------------------------------------------------------------------------
-
-  const spring2024 = await prisma.session.create({
-    data: {
-      name: 'Spring 2024', period: SessionPeriod.SPRING, year: 2024,
-      startDate: new Date('2024-02-04'), endDate: new Date('2024-05-19'), isActive: false,
-    },
-  })
-
-  const s24TeamIds: Record<string, string> = {}
-  for (const [cap, players] of Object.entries(S24_ROSTERS)) {
-    const team = await prisma.team.create({
-      data: { sessionId: spring2024.id, captainId: playerIdMap[canonical(cap)], division: S24_DIVISIONS[cap], ...S24_STANDINGS[cap] },
-    })
-    s24TeamIds[cap] = team.id
-    for (const pName of players) {
-      const pid = playerIdMap[canonical(pName)]
-      if (!pid) { console.warn(`⚠️  No player id for S24 roster: ${pName}`); continue }
-      await prisma.teamRoster.create({ data: { teamId: team.id, playerId: pid, isSub: false } })
-    }
-  }
-
-  for (const round of S24_SCHEDULE) {
-    for (const g of round.games) {
-      const game = await prisma.game.create({
-        data: {
-          sessionId: spring2024.id,
-          homeTeamId: s24TeamIds[g.home], awayTeamId: s24TeamIds[g.away],
-          scheduledAt: new Date(round.date), court: g.court, week: round.week,
-          isPlayoff: false,
-          status: g.homeScore != null ? GameStatus.FINAL : GameStatus.SCHEDULED,
-          homeScore: g.homeScore ?? 0, awayScore: g.awayScore ?? 0,
-        },
-      })
-      if (g.homeScore == null) continue
-      const homeBlock = s24Stats[g.home]?.find(b => b.gameNum === round.week)
-      const awayBlock = s24Stats[g.away]?.find(b => b.gameNum === round.week)
-      if (homeBlock) await insertGameStats(game.id, game.homeTeamId, homeBlock)
-      if (awayBlock) await insertGameStats(game.id, game.awayTeamId, awayBlock)
-    }
-  }
-  console.log('✅ Spring 2024 games + stats')
-  await buildSessionStats(spring2024.id, s24Stats)
-  console.log('✅ Spring 2024 session stats')
-
-  // ---------------------------------------------------------------------------
-  // Fall 2024
-  // ---------------------------------------------------------------------------
-
-  const fall2024 = await prisma.session.create({
-    data: {
-      name: 'Fall 2024', period: SessionPeriod.FALL, year: 2024,
-      startDate: new Date('2024-09-15'), endDate: new Date('2024-12-15'), isActive: false,
-    },
-  })
-
-  const f24TeamIds: Record<string, string> = {}
-  for (const [cap, players] of Object.entries(F24_ROSTERS)) {
-    const team = await prisma.team.create({
-      data: { sessionId: fall2024.id, captainId: playerIdMap[canonical(cap)], division: F24_DIVISIONS[cap], ...F24_STANDINGS[cap] },
-    })
-    f24TeamIds[cap] = team.id
-    for (const pName of players) {
-      const pid = playerIdMap[canonical(pName)]
-      if (!pid) { console.warn(`⚠️  No player id for F24 roster: ${pName}`); continue }
-      await prisma.teamRoster.create({ data: { teamId: team.id, playerId: pid, isSub: false } })
-    }
-  }
-
-  for (const round of F24_SCHEDULE) {
-    for (const g of round.games) {
-      const game = await prisma.game.create({
-        data: {
-          sessionId: fall2024.id,
-          homeTeamId: f24TeamIds[g.home], awayTeamId: f24TeamIds[g.away],
-          scheduledAt: new Date(round.date), court: g.court, week: round.week,
-          isPlayoff: false,
-          status: g.homeScore != null ? GameStatus.FINAL : GameStatus.SCHEDULED,
-          homeScore: g.homeScore ?? 0, awayScore: g.awayScore ?? 0,
-        },
-      })
-      if (g.homeScore == null) continue
-      const homeBlock = f24Stats[g.home]?.find(b => b.gameNum === round.week)
-      const awayBlock = f24Stats[g.away]?.find(b => b.gameNum === round.week)
-      if (homeBlock) await insertGameStats(game.id, game.homeTeamId, homeBlock)
-      if (awayBlock) await insertGameStats(game.id, game.awayTeamId, awayBlock)
-    }
-  }
-  console.log('✅ Fall 2024 games + stats')
-  await buildSessionStats(fall2024.id, f24Stats)
-  console.log('✅ Fall 2024 session stats')
-
-  // ---------------------------------------------------------------------------
-  // Spring 2025
-  // ---------------------------------------------------------------------------
-
-  const spring2025 = await prisma.session.create({
-    data: {
-      name: 'Spring 2025', period: SessionPeriod.SPRING, year: 2025,
-      startDate: new Date('2025-01-19'), endDate: new Date('2025-05-04'), isActive: false,
-    },
-  })
-
-  const s25TeamIds: Record<string, string> = {}
-  for (const [cap, players] of Object.entries(S25_ROSTERS)) {
-    const team = await prisma.team.create({
-      data: { sessionId: spring2025.id, captainId: playerIdMap[canonical(cap)], division: S25_DIVISIONS[cap], ...S25_STANDINGS[cap] },
-    })
-    s25TeamIds[cap] = team.id
-    for (const pName of players) {
-      const pid = playerIdMap[canonical(pName)]
-      if (!pid) { console.warn(`⚠️  No player id for S25 roster: ${pName}`); continue }
-      await prisma.teamRoster.create({ data: { teamId: team.id, playerId: pid, isSub: false } })
-    }
-  }
-
-  for (const round of S25_SCHEDULE) {
-    for (const g of round.games) {
-      const game = await prisma.game.create({
-        data: {
-          sessionId: spring2025.id,
-          homeTeamId: s25TeamIds[g.home], awayTeamId: s25TeamIds[g.away],
-          scheduledAt: new Date(round.date), court: g.court, week: round.week,
-          isPlayoff: round.week >= 11,
-          playoffRound: round.week === 11 ? 1 : null,
-          status: g.homeScore != null ? GameStatus.FINAL : GameStatus.SCHEDULED,
-          homeScore: g.homeScore ?? 0, awayScore: g.awayScore ?? 0,
-        },
-      })
-      if (g.homeScore == null) continue
-      const homeBlock = s25Stats[g.home]?.find(b => b.gameNum === round.week)
-      const awayBlock = s25Stats[g.away]?.find(b => b.gameNum === round.week)
-      if (homeBlock) await insertGameStats(game.id, game.homeTeamId, homeBlock)
-      if (awayBlock) await insertGameStats(game.id, game.awayTeamId, awayBlock)
-    }
-  }
-  console.log('✅ Spring 2025 games + stats')
-  await buildSessionStats(spring2025.id, s25Stats)
-  console.log('✅ Spring 2025 session stats')
-
-  // ---------------------------------------------------------------------------
-  // Fall 2025
-  // ---------------------------------------------------------------------------
-
-  const fall2025 = await prisma.session.create({
-    data: {
-      name: 'Fall 2025', period: SessionPeriod.FALL, year: 2025,
-      startDate: new Date('2025-09-14'), endDate: new Date('2025-11-16'), isActive: false,
-    },
-  })
-
-  const fallTeamIds: Record<string, string> = {}
-  for (const [cap, players] of Object.entries(FALL_ROSTERS)) {
-    const team = await prisma.team.create({
+  // ── 7. Career Stats ───────────────────────────────────────────────────
+  console.log("\n📊 Computing career stats...");
+  for (const player of await prisma.player.findMany()) {
+    const ss = await prisma.sessionStat.findMany({ where: { playerId: player.id } });
+    if (ss.length === 0) continue;
+    await prisma.careerStat.create({
       data: {
-        sessionId: fall2025.id,
-        captainId: playerIdMap[canonical(cap)],
-        division: FALL_DIVISIONS[cap],
-        ...FALL_STANDINGS[cap],
+        playerId:        player.id,
+        sessionsPlayed:  ss.length,
+        gamesPlayed:     ss.reduce((s,x) => s+x.gamesPlayed,     0),
+        fgMade:          ss.reduce((s,x) => s+x.fgMade,          0),
+        fgAttempted:     ss.reduce((s,x) => s+x.fgAttempted,     0),
+        threesMade:      ss.reduce((s,x) => s+x.threesMade,      0),
+        threesAttempted: ss.reduce((s,x) => s+x.threesAttempted, 0),
+        ftMade:          ss.reduce((s,x) => s+x.ftMade,          0),
+        ftAttempted:     ss.reduce((s,x) => s+x.ftAttempted,     0),
+        points:          ss.reduce((s,x) => s+x.points,          0),
+        rebounds:        ss.reduce((s,x) => s+x.rebounds,        0),
+        assists:         ss.reduce((s,x) => s+x.assists,         0),
+        blocks:          ss.reduce((s,x) => s+x.blocks,          0),
+        steals:          ss.reduce((s,x) => s+x.steals,          0),
+        turnovers:       ss.reduce((s,x) => s+x.turnovers,       0),
       },
-    })
-    fallTeamIds[cap] = team.id
-    for (const pName of players) {
-      const pid = playerIdMap[canonical(pName)]
-      if (!pid) { console.warn(`⚠️  No player id for Fall roster: ${pName}`); continue }
-      await prisma.teamRoster.create({ data: { teamId: team.id, playerId: pid, isSub: false } })
-    }
+    });
   }
 
-  for (const round of FALL_SCHEDULE) {
-    for (const g of round.games) {
-      const game = await prisma.game.create({
-        data: {
-          sessionId: fall2025.id,
-          homeTeamId: fallTeamIds[g.home],
-          awayTeamId: fallTeamIds[g.away],
-          scheduledAt: new Date(round.date),
-          court: g.court,
-          week: round.week,
-          isPlayoff: false,
-          status: g.homeScore != null ? GameStatus.FINAL : GameStatus.SCHEDULED,
-          homeScore: g.homeScore ?? 0,
-          awayScore: g.awayScore ?? 0,
-        },
-      })
-      if (g.homeScore == null) continue
-      const homeBlock = fallStats[g.home]?.find(b => b.gameNum === round.week)
-      const awayBlock = fallStats[g.away]?.find(b => b.gameNum === round.week)
-      if (homeBlock) await insertGameStats(game.id, game.homeTeamId, homeBlock)
-      if (awayBlock) await insertGameStats(game.id, game.awayTeamId, awayBlock)
-    }
-  }
-  console.log('✅ Fall 2025 games + stats')
-
-  await buildSessionStats(fall2025.id, fallStats)
-  console.log('✅ Fall 2025 session stats')
-
-  // ---------------------------------------------------------------------------
-  // Spring 2026
-  // ---------------------------------------------------------------------------
-
-  const spring2026 = await prisma.session.create({
-    data: {
-      name: 'Spring 2026', period: SessionPeriod.SPRING, year: 2026,
-      startDate: new Date('2026-01-18'), isActive: true,
-    },
-  })
-
-  const springTeamIds: Record<string, string> = {}
-  for (const [cap, players] of Object.entries(SPRING_ROSTERS)) {
-    const team = await prisma.team.create({
-      data: {
-        sessionId: spring2026.id,
-        captainId: playerIdMap[canonical(cap)],
-        division: SPRING_DIVISIONS[cap],
-        ...SPRING_STANDINGS[cap],
-      },
-    })
-    springTeamIds[cap] = team.id
-    for (const pName of players) {
-      const pid = playerIdMap[canonical(pName)]
-      if (!pid) { console.warn(`⚠️  No player id for Spring roster: ${pName}`); continue }
-      await prisma.teamRoster.create({ data: { teamId: team.id, playerId: pid, isSub: false } })
-    }
-  }
-
-  for (const round of SPRING_SCHEDULE) {
-    for (const g of round.games) {
-      const isCompleted = g.homeScore != null
-      const game = await prisma.game.create({
-        data: {
-          sessionId: spring2026.id,
-          homeTeamId: springTeamIds[g.home],
-          awayTeamId: springTeamIds[g.away],
-          scheduledAt: new Date(round.date),
-          court: g.court,
-          week: round.week,
-          isPlayoff: false,
-          status: isCompleted ? GameStatus.FINAL : GameStatus.SCHEDULED,
-          homeScore: g.homeScore ?? 0,
-          awayScore: g.awayScore ?? 0,
-        },
-      })
-      if (!isCompleted) continue
-      const homeBlock = springStats[g.home]?.find(b => b.gameNum === round.week)
-      const awayBlock = springStats[g.away]?.find(b => b.gameNum === round.week)
-      if (homeBlock) await insertGameStats(game.id, game.homeTeamId, homeBlock)
-      if (awayBlock) await insertGameStats(game.id, game.awayTeamId, awayBlock)
-    }
-  }
-  console.log('✅ Spring 2026 games + stats')
-
-  await buildSessionStats(spring2026.id, springStats)
-  console.log('✅ Spring 2026 session stats')
-
-  // ---------------------------------------------------------------------------
-  // Career Stats
-  // ---------------------------------------------------------------------------
-
-  const allPlayers = await prisma.player.findMany()
-  for (const player of allPlayers) {
-    const sessions = await prisma.sessionStat.findMany({ where: { playerId: player.id } })
-    if (sessions.length === 0) continue
-    type CareerAgg = { sessionsPlayed: number; gamesPlayed: number; fgMade: number; fgAttempted: number; threesMade: number; threesAttempted: number; ftMade: number; ftAttempted: number; points: number; rebounds: number; assists: number; blocks: number; steals: number; turnovers: number }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const career = sessions.reduce((acc: CareerAgg, s: any) => ({
-      sessionsPlayed:  acc.sessionsPlayed + 1,
-      gamesPlayed:     acc.gamesPlayed + s.gamesPlayed,
-      fgMade:          acc.fgMade + s.fgMade,
-      fgAttempted:     acc.fgAttempted + s.fgAttempted,
-      threesMade:      acc.threesMade + s.threesMade,
-      threesAttempted: acc.threesAttempted + s.threesAttempted,
-      ftMade:          acc.ftMade + s.ftMade,
-      ftAttempted:     acc.ftAttempted + s.ftAttempted,
-      points:          acc.points + s.points,
-      rebounds:        acc.rebounds + s.rebounds,
-      assists:         acc.assists + s.assists,
-      blocks:          acc.blocks + s.blocks,
-      steals:          acc.steals + s.steals,
-      turnovers:       acc.turnovers + s.turnovers,
-    }), { sessionsPlayed: 0, gamesPlayed: 0, fgMade: 0, fgAttempted: 0, threesMade: 0, threesAttempted: 0, ftMade: 0, ftAttempted: 0, points: 0, rebounds: 0, assists: 0, blocks: 0, steals: 0, turnovers: 0 })
-    await prisma.careerStat.create({ data: { playerId: player.id, ...career } })
-  }
-  console.log('✅ Career stats')
-  console.log('🏀 Seed complete!')
+  console.log("  ✅ Career stats complete");
+  console.log("\n🏆 Seed complete!\n");
 }
 
 main()
-  .catch(e => { console.error(e); process.exit(1) })
-  .finally(() => prisma.$disconnect())
+  .catch(e => { console.error(e); process.exit(1); })
+  .finally(async () => { await prisma.$disconnect(); });

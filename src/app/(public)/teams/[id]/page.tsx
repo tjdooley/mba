@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
+import { Division, GameStatus } from '@/generated/prisma/client'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { GameStatus } from '@/generated/prisma/client'
 
 // ─── DATA ────────────────────────────────────────────────────────────────
 
@@ -9,117 +9,91 @@ async function getTeamData(id: string) {
   const team = await prisma.team.findUnique({
     where: { id },
     include: {
-      session: { select: { id: true, name: true, period: true, year: true, isActive: true } },
+      session: { select: { id: true, name: true, period: true, year: true } },
       captain: { select: { id: true, displayName: true } },
       roster: {
         include: {
-          player: {
-            include: {
-              sessionStats: {
-                where: { sessionId: { not: undefined } },
-                include: { session: { select: { id: true } } },
-              },
-            },
-          },
+          player: { select: { id: true, displayName: true } },
         },
-        orderBy: { isSub: 'asc' },
-      },
-      homeGames: {
-        include: {
-          awayTeam: { include: { captain: { select: { displayName: true } } } },
-          gameStats: {
-            include: { player: { select: { displayName: true } } },
-          },
-        },
-        orderBy: { scheduledAt: 'asc' },
-      },
-      awayGames: {
-        include: {
-          homeTeam: { include: { captain: { select: { displayName: true } } } },
-          gameStats: {
-            include: { player: { select: { displayName: true } } },
-          },
-        },
-        orderBy: { scheduledAt: 'asc' },
+        orderBy: { player: { lastName: 'asc' } },
       },
     },
   })
 
   if (!team) return null
 
-  // Pull session stats for this session for each roster player
+  // Fetch all games for this team (home or away)
+  const games = await prisma.game.findMany({
+    where: {
+      sessionId: team.sessionId,
+      OR: [{ homeTeamId: team.id }, { awayTeamId: team.id }],
+    },
+    orderBy: { scheduledAt: 'asc' },
+    include: {
+      homeTeam: { include: { captain: { select: { displayName: true } } } },
+      awayTeam: { include: { captain: { select: { displayName: true } } } },
+    },
+  })
+
+  // Session stats for rostered players
+  const playerIds = team.roster.map((r) => r.playerId)
   const sessionStats = await prisma.sessionStat.findMany({
     where: {
       sessionId: team.sessionId,
-      playerId: { in: team.roster.map((r) => r.playerId) },
+      playerId: { in: playerIds },
     },
-    include: { player: { select: { displayName: true } } },
+    include: {
+      player: { select: { id: true, displayName: true } },
+    },
+    orderBy: { points: 'desc' },
   })
 
-  return { team, sessionStats }
+  return { team, games, sessionStats }
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────
+
+function avg(val: number, gp: number, decimals = 1) {
+  if (gp === 0) return '—'
+  return (val / gp).toFixed(decimals)
+}
 
 function pct(made: number, att: number) {
   if (att === 0) return '—'
   return `${Math.round((made / att) * 100)}%`
 }
 
-function avg(val: number, gp: number) {
-  if (gp === 0) return '—'
-  return (val / gp).toFixed(1)
+function weekLabel(game: { week: number | null; isPlayoff: boolean; playoffRound: number | null }) {
+  if (game.isPlayoff) {
+    const rounds: Record<number, string> = { 1: 'Wild Card', 2: 'Semifinals', 3: 'Championship' }
+    return rounds[game.playoffRound ?? 1] ?? 'Playoffs'
+  }
+  return game.week ? `Week ${game.week}` : '—'
 }
 
-function fmt(d: Date) {
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+function formatDate(d: Date) {
+  return new Date(d).toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+  })
 }
 
-// ─── PAGE ─────────────────────────────────────────────────────────────────
+// ─── PAGE ────────────────────────────────────────────────────────────────
 
 export default async function TeamPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const data = await getTeamData(id)
   if (!data) notFound()
 
-  const { team, sessionStats } = data
-  const diff = team.pointDifferential
-  const diffStr = diff > 0 ? `+${diff}` : `${diff}`
-  const diffColor = diff > 0 ? 'var(--green)' : diff < 0 ? 'var(--red)' : 'var(--muted)'
+  const { team, games, sessionStats } = data
+  const isFreehouse = team.division === Division.FREEHOUSE
+  const divLabel = isFreehouse ? 'FreeHouse' : "Delaney's"
+  const divAccent = isFreehouse ? 'var(--green)' : 'var(--teal)'
 
-  // Merge and sort all games
-  const allGames = [
-    ...team.homeGames.map((g) => ({
-      ...g,
-      isHome: true,
-      opponent: g.awayTeam.captain.displayName,
-      teamScore: g.homeScore,
-      oppScore: g.awayScore,
-    })),
-    ...team.awayGames.map((g) => ({
-      ...g,
-      isHome: false,
-      opponent: g.homeTeam.captain.displayName,
-      teamScore: g.awayScore,
-      oppScore: g.homeScore,
-    })),
-  ].sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
-
-  const finalGames   = allGames.filter((g) => g.status === GameStatus.FINAL)
-  const upcomingGames = allGames.filter((g) => g.status !== GameStatus.FINAL)
-
-  const rostered = team.roster.filter((r) => !r.isSub)
-  const subs     = team.roster.filter((r) => r.isSub)
-
-  const divisionLabel = team.division === 'FREEHOUSE' ? 'FreeHouse Division' : "Delaney's Division"
+  const completedGames = games.filter((g) => g.status === GameStatus.FINAL)
+  const upcomingGames = games.filter((g) => g.status === GameStatus.SCHEDULED)
 
   return (
     <main>
-      <style>{`
-        .player-row:hover { background: rgba(255,255,255,0.025) !important; }
-        .game-row:hover { background: rgba(255,255,255,0.025) !important; }
-      `}</style>
-
       {/* Hero */}
       <div style={{
         background: 'linear-gradient(180deg, #0f1620 0%, var(--dark) 100%)',
@@ -128,231 +102,351 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
       }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           {/* Breadcrumb */}
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 16, fontSize: 12, color: 'var(--muted)' }}>
-            <Link href="/teams" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Teams</Link>
-            <span>/</span>
-            <span style={{ color: 'var(--text)' }}>{team.captain.displayName}</span>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16 }}>
+            <Link href="/" style={{ color: 'var(--muted)', textDecoration: 'none' }}>Standings</Link>
+            <span style={{ margin: '0 6px' }}>›</span>
+            <span>Team {team.captain.displayName}</span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'space-between',
+            gap: 20,
+            flexWrap: 'wrap',
+          }}>
             <div>
-              {/* Season badge */}
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                background: team.session.isActive ? 'rgba(29,185,84,0.12)' : 'rgba(107,124,147,0.1)',
-                border: `1px solid ${team.session.isActive ? 'rgba(29,185,84,0.25)' : 'var(--border)'}`,
-                borderRadius: 20, padding: '3px 10px', marginBottom: 10,
-              }}>
-                {team.session.isActive && (
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', display: 'inline-block' }} />
-                )}
-                <span style={{ fontSize: 11, fontWeight: 600, color: team.session.isActive ? 'var(--green)' : 'var(--muted)', letterSpacing: 1, textTransform: 'uppercase' }}>
-                  {team.session.name}
-                </span>
-              </div>
-
               <h1 style={{
                 fontFamily: 'var(--font-display)',
-                fontSize: 'clamp(40px, 6vw, 68px)',
+                fontSize: 'clamp(36px, 6vw, 60px)',
                 letterSpacing: 3,
                 lineHeight: 1,
                 color: 'var(--text)',
               }}>
-                {team.captain.displayName}
-              </h1>
-              <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 6, letterSpacing: '0.4px' }}>
-                {divisionLabel} · Captain:{' '}
-                <Link href={`/players/${team.captain.id}`} style={{ color: 'var(--green)', textDecoration: 'none' }}>
+                Team{' '}
+                <span style={{
+                  background: 'linear-gradient(135deg, #1db954, #2a8f8f)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}>
                   {team.captain.displayName}
-                </Link>
+                </span>
+              </h1>
+              <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 8, letterSpacing: '0.4px' }}>
+                {team.session.name} · {divLabel} Division
               </p>
             </div>
 
-            {/* Record box */}
+            {/* Record badge */}
             <div style={{
               background: 'var(--surface)',
               border: '1px solid var(--border)',
-              borderRadius: 12,
-              padding: '16px 24px',
-              display: 'flex',
-              gap: 28,
-              alignItems: 'center',
+              borderRadius: 10,
+              padding: '12px 20px',
+              textAlign: 'center',
             }}>
-              <RecordStat label="Record" value={`${team.wins}–${team.losses}`} color="var(--text)" />
-              <RecordStat label="Div" value={`${team.divisionWins}–${team.divisionLosses}`} color="var(--muted)" />
-              <RecordStat label="Diff" value={diffStr} color={diffColor} />
+              <div style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 32,
+                fontWeight: 500,
+                lineHeight: 1,
+                letterSpacing: 2,
+              }}>
+                <span style={{ color: 'var(--green)' }}>{team.wins}</span>
+                <span style={{ color: 'var(--border)', margin: '0 4px' }}>–</span>
+                <span style={{ color: 'var(--red)' }}>{team.losses}</span>
+              </div>
+              <div style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '1.5px',
+                textTransform: 'uppercase',
+                color: 'var(--muted)',
+                marginTop: 6,
+              }}>
+                Div: {team.divisionWins}–{team.divisionLosses} · Diff:{' '}
+                <span style={{ color: team.pointDifferential >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                  {team.pointDifferential > 0 ? '+' : ''}{team.pointDifferential}
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Content */}
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '28px 24px 60px' }}>
 
-        {/* ── Roster Stats Table ── */}
-        <SectionTitle>Roster</SectionTitle>
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 32 }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 540 }}>
-              <thead>
-                <tr>
-                  {['Player', 'GP', 'PPG', 'RPG', 'APG', 'FG%', '3P%'].map((h, i) => (
-                    <th key={h} style={{
-                      padding: '8px 12px', fontSize: 10, fontWeight: 600, letterSpacing: '1px',
-                      textTransform: 'uppercase', color: 'var(--muted)',
-                      textAlign: i === 0 ? 'left' : 'right',
-                      borderBottom: '1px solid var(--border)',
-                    }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rostered.map((r, i) => {
-                  const ss = sessionStats.find((s) => s.playerId === r.playerId)
-                  const gp = ss?.gamesPlayed ?? 0
-                  const notLast = i < rostered.length - 1
-                  return (
-                    <tr key={r.player.id} className="player-row" style={{ transition: 'background 0.12s' }}>
-                      <td style={{ padding: '10px 12px', borderBottom: notLast ? '1px solid rgba(42,53,72,0.4)' : 'none' }}>
-                        <Link href={`/players/${r.player.id}`} style={{ color: 'var(--text)', textDecoration: 'none', fontWeight: 600, fontSize: 14 }}>
-                          {r.player.displayName}
-                        </Link>
-                      </td>
-                      {[
-                        gp,
-                        avg(ss?.points ?? 0, gp),
-                        avg(ss?.rebounds ?? 0, gp),
-                        avg(ss?.assists ?? 0, gp),
-                        pct(ss?.fgMade ?? 0, ss?.fgAttempted ?? 0),
-                        pct(ss?.threesMade ?? 0, ss?.threesAttempted ?? 0),
-                      ].map((v, j) => (
-                        <td key={j} style={{
-                          padding: '10px 12px', fontFamily: 'var(--font-mono)', fontSize: 13,
-                          textAlign: 'right', color: j === 1 ? 'var(--green)' : 'var(--text)',
-                          fontWeight: j === 1 ? 700 : 400,
-                          borderBottom: notLast ? '1px solid rgba(42,53,72,0.4)' : 'none',
-                        }}>
-                          {v}
-                        </td>
-                      ))}
-                    </tr>
-                  )
-                })}
-                {subs.length > 0 && (
-                  <tr>
-                    <td colSpan={7} style={{ padding: '6px 12px', fontSize: 10, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--muted)', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid var(--border)' }}>
-                      Subs
-                    </td>
-                  </tr>
+        {/* ── ROSTER ──────────────────────────────────────────────── */}
+        <SectionHeader label="Roster" />
+
+        <div style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 10,
+          overflow: 'hidden',
+          marginBottom: 28,
+        }}>
+          {team.roster.map((r, i) => {
+            const isCaptain = r.playerId === team.captainId
+            const notLast = i < team.roster.length - 1
+            return (
+              <Link
+                key={r.id}
+                href={`/players/${r.playerId}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '12px 16px',
+                  borderBottom: notLast ? '1px solid rgba(42,53,72,0.5)' : 'none',
+                  textDecoration: 'none',
+                  transition: 'background 0.15s',
+                }}
+              >
+                <span style={{
+                  fontWeight: 600,
+                  fontSize: 14,
+                  color: isCaptain ? 'var(--green)' : 'var(--text)',
+                }}>
+                  {r.player.displayName}
+                </span>
+                {isCaptain && (
+                  <span style={{
+                    fontSize: 9,
+                    fontWeight: 700,
+                    letterSpacing: '1px',
+                    textTransform: 'uppercase',
+                    color: 'var(--green)',
+                    background: 'rgba(29,185,84,0.12)',
+                    border: '1px solid rgba(29,185,84,0.25)',
+                    padding: '2px 6px',
+                    borderRadius: 10,
+                  }}>
+                    Captain
+                  </span>
                 )}
-                {subs.map((r, i) => {
-                  const ss = sessionStats.find((s) => s.playerId === r.playerId)
-                  const gp = ss?.gamesPlayed ?? 0
-                  const notLast = i < subs.length - 1
-                  return (
-                    <tr key={r.player.id} className="player-row" style={{ transition: 'background 0.12s', opacity: 0.75 }}>
-                      <td style={{ padding: '9px 12px', borderBottom: notLast ? '1px solid rgba(42,53,72,0.4)' : 'none' }}>
-                        <Link href={`/players/${r.player.id}`} style={{ color: 'var(--muted)', textDecoration: 'none', fontSize: 13 }}>
-                          {r.player.displayName}
-                        </Link>
-                        <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--muted)', opacity: 0.6 }}>sub</span>
-                      </td>
-                      {[
-                        gp,
-                        avg(ss?.points ?? 0, gp),
-                        avg(ss?.rebounds ?? 0, gp),
-                        avg(ss?.assists ?? 0, gp),
-                        pct(ss?.fgMade ?? 0, ss?.fgAttempted ?? 0),
-                        pct(ss?.threesMade ?? 0, ss?.threesAttempted ?? 0),
-                      ].map((v, j) => (
-                        <td key={j} style={{
-                          padding: '9px 12px', fontFamily: 'var(--font-mono)', fontSize: 12,
-                          textAlign: 'right', color: 'var(--muted)',
-                          borderBottom: notLast ? '1px solid rgba(42,53,72,0.4)' : 'none',
-                        }}>
-                          {v}
-                        </td>
-                      ))}
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                {r.isSub && (
+                  <span style={{
+                    fontSize: 9,
+                    fontWeight: 700,
+                    letterSpacing: '1px',
+                    textTransform: 'uppercase',
+                    color: 'var(--amber)',
+                    background: 'rgba(245,166,35,0.12)',
+                    border: '1px solid rgba(245,166,35,0.25)',
+                    padding: '2px 6px',
+                    borderRadius: 10,
+                  }}>
+                    Sub
+                  </span>
+                )}
+              </Link>
+            )
+          })}
         </div>
 
-        {/* ── Game Log ── */}
-        {finalGames.length > 0 && (
+        {/* ── PLAYER STATS ────────────────────────────────────────── */}
+        {sessionStats.length > 0 && (
           <>
-            <SectionTitle>Results</SectionTitle>
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 32 }}>
-              {finalGames.map((g, i) => {
-                const won = g.teamScore > g.oppScore
-                const notLast = i < finalGames.length - 1
+            <SectionHeader label="Player Stats" />
+
+            <div style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 10,
+              overflow: 'hidden',
+              marginBottom: 28,
+              overflowX: 'auto',
+            }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
+                <thead>
+                  <tr>
+                    {['PLAYER', 'GP', 'PPG', 'RPG', 'APG', 'FG%', '3P%', 'FT%'].map((h, i) => (
+                      <th key={h} style={{
+                        padding: '10px 12px',
+                        fontSize: 10,
+                        fontWeight: 600,
+                        letterSpacing: '1px',
+                        color: 'var(--muted)',
+                        textAlign: i === 0 ? 'left' : 'right',
+                        borderBottom: '1px solid var(--border)',
+                      }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sessionStats.map((s, i) => {
+                    const gp = s.gamesPlayed
+                    const notLast = i < sessionStats.length - 1
+                    return (
+                      <tr key={s.id}>
+                        <td style={{
+                          padding: '10px 12px',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          borderBottom: notLast ? '1px solid rgba(42,53,72,0.4)' : 'none',
+                        }}>
+                          <Link
+                            href={`/players/${s.playerId}`}
+                            style={{ color: 'var(--text)', textDecoration: 'none' }}
+                          >
+                            {s.player.displayName}
+                          </Link>
+                        </td>
+                        {[
+                          gp.toString(),
+                          avg(s.points, gp),
+                          avg(s.rebounds, gp),
+                          avg(s.assists, gp),
+                          pct(s.fgMade, s.fgAttempted),
+                          pct(s.threesMade, s.threesAttempted),
+                          pct(s.ftMade, s.ftAttempted),
+                        ].map((v, j) => (
+                          <td key={j} style={{
+                            padding: '10px 12px',
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: 13,
+                            textAlign: 'right',
+                            color: j === 1 ? 'var(--green)' : 'var(--text)',
+                            fontWeight: j === 1 ? 700 : 400,
+                            borderBottom: notLast ? '1px solid rgba(42,53,72,0.4)' : 'none',
+                          }}>
+                            {v}
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {/* ── RESULTS ─────────────────────────────────────────────── */}
+        {completedGames.length > 0 && (
+          <>
+            <SectionHeader label="Results" />
+
+            <div style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 10,
+              overflow: 'hidden',
+              marginBottom: 28,
+            }}>
+              {completedGames.map((g, i) => {
+                const isHome = g.homeTeamId === team.id
+                const teamScore = isHome ? g.homeScore : g.awayScore
+                const oppScore = isHome ? g.awayScore : g.homeScore
+                const oppName = isHome
+                  ? g.awayTeam.captain.displayName
+                  : g.homeTeam.captain.displayName
+                const won = teamScore > oppScore
+                const notLast = i < completedGames.length - 1
+
                 return (
-                  <div key={g.id} className="game-row" style={{
-                    display: 'flex', alignItems: 'center', padding: '12px 16px',
-                    borderBottom: notLast ? '1px solid rgba(42,53,72,0.4)' : 'none',
-                    gap: 12, transition: 'background 0.12s',
-                  }}>
+                  <Link
+                    key={g.id}
+                    href={`/games/${g.id}`}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 16px',
+                      borderBottom: notLast ? '1px solid rgba(42,53,72,0.5)' : 'none',
+                      textDecoration: 'none',
+                      transition: 'background 0.15s',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 11,
+                        color: 'var(--muted)',
+                        minWidth: 52,
+                      }}>
+                        {weekLabel(g)}
+                      </span>
+                      <span style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        letterSpacing: '0.5px',
+                        color: won ? 'var(--green)' : 'var(--red)',
+                        minWidth: 14,
+                      }}>
+                        {won ? 'W' : 'L'}
+                      </span>
+                      <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                        {isHome ? 'vs' : '@'}{' '}
+                        <span style={{ color: 'var(--text)', fontWeight: 500 }}>{oppName}</span>
+                      </span>
+                    </div>
                     <span style={{
-                      fontSize: 10, fontWeight: 700, letterSpacing: '1px',
-                      color: won ? 'var(--green)' : 'var(--red)',
-                      background: won ? 'rgba(29,185,84,0.1)' : 'rgba(232,64,64,0.1)',
-                      border: `1px solid ${won ? 'rgba(29,185,84,0.2)' : 'rgba(232,64,64,0.2)'}`,
-                      borderRadius: 4, padding: '2px 6px', minWidth: 22, textAlign: 'center',
-                    }}>
-                      {won ? 'W' : 'L'}
-                    </span>
-                    <span style={{ flex: 1, fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>
-                      {g.isHome ? 'vs' : '@'} {g.opponent}
-                    </span>
-                    <span style={{
-                      fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600,
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 13,
+                      fontWeight: 600,
                       color: won ? 'var(--green)' : 'var(--text)',
                     }}>
-                      {g.teamScore}–{g.oppScore}
+                      {teamScore}–{oppScore}
                     </span>
-                    <span style={{ fontSize: 11, color: 'var(--muted)', minWidth: 56, textAlign: 'right' }}>
-                      {g.isPlayoff ? '🏆 PO' : `Wk ${g.week}`}
-                    </span>
-                    <span style={{ fontSize: 11, color: 'var(--muted)', minWidth: 70, textAlign: 'right' }}>
-                      {fmt(g.scheduledAt)}
-                    </span>
-                  </div>
+                  </Link>
                 )
               })}
             </div>
           </>
         )}
 
-        {/* ── Upcoming ── */}
+        {/* ── UPCOMING ────────────────────────────────────────────── */}
         {upcomingGames.length > 0 && (
           <>
-            <SectionTitle>Upcoming</SectionTitle>
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', marginBottom: 32 }}>
+            <SectionHeader label="Upcoming" />
+
+            <div style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 10,
+              overflow: 'hidden',
+              marginBottom: 28,
+            }}>
               {upcomingGames.map((g, i) => {
+                const isHome = g.homeTeamId === team.id
+                const oppName = isHome
+                  ? g.awayTeam.captain.displayName
+                  : g.homeTeam.captain.displayName
                 const notLast = i < upcomingGames.length - 1
+
                 return (
-                  <div key={g.id} style={{
-                    display: 'flex', alignItems: 'center', padding: '12px 16px',
-                    borderBottom: notLast ? '1px solid rgba(42,53,72,0.4)' : 'none',
-                    gap: 12,
-                  }}>
-                    <span style={{
-                      fontSize: 10, fontWeight: 700, letterSpacing: '1px',
-                      color: 'var(--muted)', background: 'rgba(107,124,147,0.1)',
-                      border: '1px solid var(--border)', borderRadius: 4, padding: '2px 6px',
-                    }}>
-                      TBD
-                    </span>
-                    <span style={{ flex: 1, fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>
-                      {g.isHome ? 'vs' : '@'} {g.opponent}
-                    </span>
-                    <span style={{ fontSize: 11, color: 'var(--muted)', minWidth: 56, textAlign: 'right' }}>
-                      Wk {g.week}
-                    </span>
-                    <span style={{ fontSize: 11, color: 'var(--muted)', minWidth: 70, textAlign: 'right' }}>
-                      {fmt(g.scheduledAt)}
+                  <div
+                    key={g.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 16px',
+                      borderBottom: notLast ? '1px solid rgba(42,53,72,0.5)' : 'none',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: 11,
+                        color: 'var(--muted)',
+                        minWidth: 52,
+                      }}>
+                        {weekLabel(g)}
+                      </span>
+                      <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                        {isHome ? 'vs' : '@'}{' '}
+                        <span style={{ color: 'var(--text)', fontWeight: 500 }}>{oppName}</span>
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                      {formatDate(g.scheduledAt)}
                     </span>
                   </div>
                 )
@@ -365,28 +459,25 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
   )
 }
 
-// ─── SHARED COMPONENTS ───────────────────────────────────────────────────
+// ─── SECTION HEADER ──────────────────────────────────────────────────────
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function SectionHeader({ label }: { label: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-      <span style={{ fontFamily: 'var(--font-display)', fontSize: 20, letterSpacing: 2, color: 'var(--text)' }}>
-        {children}
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 16,
+    }}>
+      <span style={{
+        fontFamily: 'var(--font-display)',
+        fontSize: 20,
+        letterSpacing: 2,
+        color: 'var(--text)',
+      }}>
+        {label}
       </span>
       <span style={{ flex: 1, height: 1, background: 'var(--border)', display: 'block' }} />
-    </div>
-  )
-}
-
-function RecordStat({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 4 }}>
-        {label}
-      </div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 600, color, lineHeight: 1 }}>
-        {value}
-      </div>
     </div>
   )
 }
