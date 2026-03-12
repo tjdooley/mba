@@ -1,14 +1,20 @@
 import { prisma } from '@/lib/prisma'
 import { Division } from '@/generated/prisma/client'
 import Link from 'next/link'
+import { SessionPicker } from '@/components/SessionPicker'
 
 // ─── DATA FETCHING ────────────────────────────────────────────────────────
 
-async function getStandingsData() {
-  const session = await prisma.session.findFirst({
-    where: { isActive: true },
-    orderBy: { startDate: 'desc' },
-  })
+async function getStandingsData(sessionId?: string) {
+  const [allSessions, session] = await Promise.all([
+    prisma.session.findMany({
+      orderBy: { startDate: 'desc' },
+      select: { id: true, name: true, isActive: true },
+    }),
+    sessionId
+      ? prisma.session.findUnique({ where: { id: sessionId } })
+      : prisma.session.findFirst({ where: { isActive: true }, orderBy: { startDate: 'desc' } }),
+  ])
 
   if (!session) return null
 
@@ -19,7 +25,7 @@ async function getStandingsData() {
     },
   })
 
-  return { session, teams }
+  return { session, teams, allSessions }
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────
@@ -201,8 +207,13 @@ function StandingsTable({ teams, division }: { teams: Team[]; division: Division
 
 // ─── PAGE ─────────────────────────────────────────────────────────────────
 
-export default async function HomePage() {
-  const data = await getStandingsData()
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ session?: string }>
+}) {
+  const { session: sessionId } = await searchParams
+  const data = await getStandingsData(sessionId)
 
   if (!data) {
     return (
@@ -212,7 +223,7 @@ export default async function HomePage() {
     )
   }
 
-  const { session, teams } = data
+  const { session, teams, allSessions } = data
   const leader = sortTeams(teams)[0]
 
   return (
@@ -229,73 +240,78 @@ export default async function HomePage() {
           style={{
             maxWidth: 900,
             margin: '0 auto',
+          }}
+        >
+          <div style={{
             display: 'flex',
             alignItems: 'flex-end',
             justifyContent: 'space-between',
             gap: 20,
             flexWrap: 'wrap',
-          }}
-        >
-          <div>
-            <h1
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: 'clamp(36px, 6vw, 60px)',
-                letterSpacing: 3,
-                lineHeight: 1,
-                color: 'var(--text)',
-              }}
-            >
-              Session{' '}
-              <span
+          }}>
+            <div>
+              <h1
                 style={{
-                  background: 'linear-gradient(135deg, #1db954, #2a8f8f)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
+                  fontFamily: 'var(--font-display)',
+                  fontSize: 'clamp(36px, 6vw, 60px)',
+                  letterSpacing: 3,
+                  lineHeight: 1,
+                  color: 'var(--text)',
                 }}
               >
-                Standings
-              </span>
-            </h1>
-            <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 8, letterSpacing: '0.4px' }}>
-              {session.name} · 10 regular season games · 6 teams qualify for playoffs
-            </p>
-          </div>
-
-          {leader && (
-            <div style={{ textAlign: 'right' }}>
-              <div
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: '1.5px',
-                  textTransform: 'uppercase',
-                  color: 'var(--muted)',
-                  marginBottom: 4,
-                }}
-              >
-                Overall Leader
-              </div>
-              <Link href={`/teams/${leader.id}`} style={{ textDecoration: 'none' }}>
-                <div
+                Session{' '}
+                <span
                   style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: 34,
-                    color: 'var(--green)',
-                    letterSpacing: 2,
-                    lineHeight: 1,
+                    background: 'linear-gradient(135deg, #1db954, #2a8f8f)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
                   }}
                 >
-                  {leader.captain.displayName}
-                </div>
-              </Link>
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
-                {leader.wins}–{leader.losses} ·{' '}
-                {leader.division === Division.FREEHOUSE ? 'FreeHouse' : "Delaney's"}
-              </div>
+                  Standings
+                </span>
+              </h1>
+              <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 8, letterSpacing: '0.4px' }}>
+                {session.name} · 10 regular season games · 6 teams qualify for playoffs
+              </p>
             </div>
-          )}
+
+            {leader && (
+              <div style={{ textAlign: 'right' }}>
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: '1.5px',
+                    textTransform: 'uppercase',
+                    color: 'var(--muted)',
+                    marginBottom: 4,
+                  }}
+                >
+                  Overall Leader
+                </div>
+                <Link href={`/teams/${leader.id}`} style={{ textDecoration: 'none' }}>
+                  <div
+                    style={{
+                      fontFamily: 'var(--font-display)',
+                      fontSize: 34,
+                      color: 'var(--green)',
+                      letterSpacing: 2,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {leader.captain.displayName}
+                  </div>
+                </Link>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                  {leader.wins}–{leader.losses} ·{' '}
+                  {leader.division === Division.FREEHOUSE ? 'FreeHouse' : "Delaney's"}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <SessionPicker sessions={allSessions} currentId={session.id} basePath="/" />
         </div>
       </div>
 

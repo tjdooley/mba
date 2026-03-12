@@ -2,14 +2,21 @@ import { prisma } from '@/lib/prisma'
 import { GameStatus } from '@/generated/prisma/client'
 import Link from 'next/link'
 import { ScheduleTabs } from '@/components/ScheduleTabs'
+import { SessionPicker } from '@/components/SessionPicker'
 
 // ─── DATA ────────────────────────────────────────────────────────────────
 
-async function getScheduleData() {
-  const session = await prisma.session.findFirst({
-    where: { isActive: true },
-    orderBy: { startDate: 'desc' },
-  })
+async function getScheduleData(sessionId?: string) {
+  const [allSessions, session] = await Promise.all([
+    prisma.session.findMany({
+      orderBy: { startDate: 'desc' },
+      select: { id: true, name: true, isActive: true },
+    }),
+    sessionId
+      ? prisma.session.findUnique({ where: { id: sessionId } })
+      : prisma.session.findFirst({ where: { isActive: true }, orderBy: { startDate: 'desc' } }),
+  ])
+
   if (!session) return null
 
   const games = await prisma.game.findMany({
@@ -21,7 +28,7 @@ async function getScheduleData() {
     },
   })
 
-  return { session, games }
+  return { session, games, allSessions }
 }
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────
@@ -42,14 +49,19 @@ export function weekLabel(game: { week: number | null; isPlayoff: boolean; playo
 
 // ─── PAGE ────────────────────────────────────────────────────────────────
 
-export default async function SchedulePage() {
-  const data = await getScheduleData()
+export default async function SchedulePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ session?: string }>
+}) {
+  const { session: sessionId } = await searchParams
+  const data = await getScheduleData(sessionId)
 
   if (!data) {
     return <main style={{ padding: 60, textAlign: 'center', color: 'var(--muted)' }}>No active session.</main>
   }
 
-  const { session, games } = data
+  const { session, games, allSessions } = data
 
   const regularSeason = games.filter((g) => !g.isPlayoff)
   const playoffs      = games.filter((g) => g.isPlayoff)
@@ -85,6 +97,7 @@ export default async function SchedulePage() {
           <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 8, letterSpacing: '0.4px' }}>
             {session.name} · {regularSeason.filter((g) => g.status === GameStatus.FINAL).length} games played · {upcoming.length} remaining
           </p>
+          <SessionPicker sessions={allSessions} currentId={session.id} basePath="/games" />
         </div>
       </div>
 

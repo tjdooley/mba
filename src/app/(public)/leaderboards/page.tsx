@@ -1,17 +1,28 @@
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
+import { SessionPicker } from '@/components/SessionPicker'
 
 // ─── DATA ────────────────────────────────────────────────────────────────
 
-async function getLeaderboardData() {
-  const session = await prisma.session.findFirst({
-    where: { isActive: true },
-    orderBy: { startDate: 'desc' },
-  })
+async function getLeaderboardData(sessionId?: string) {
+  const [allSessions, session] = await Promise.all([
+    prisma.session.findMany({
+      orderBy: { startDate: 'desc' },
+      select: { id: true, name: true, isActive: true },
+    }),
+    sessionId
+      ? prisma.session.findUnique({ where: { id: sessionId } })
+      : prisma.session.findFirst({ where: { isActive: true }, orderBy: { startDate: 'desc' } }),
+  ])
+
   if (!session) return null
 
   const sessionStats = await prisma.sessionStat.findMany({
-    where: { sessionId: session.id, gamesPlayed: { gt: 0 } },
+    where: {
+      sessionId: session.id,
+      gamesPlayed: { gt: 0 },
+      player: { isActive: true },
+    },
     include: {
       player: { select: { id: true, displayName: true } },
     },
@@ -53,7 +64,7 @@ async function getLeaderboardData() {
     ftPct:      s.ftAttempted    > 0 ? s.ftMade    / s.ftAttempted    : 0,
   }))
 
-  return { session, rows }
+  return { session, rows, allSessions }
 }
 
 type Row = NonNullable<Awaited<ReturnType<typeof getLeaderboardData>>>['rows'][number]
@@ -162,14 +173,19 @@ function LeaderboardTable({
 
 // ─── PAGE ────────────────────────────────────────────────────────────────
 
-export default async function LeaderboardsPage() {
-  const data = await getLeaderboardData()
+export default async function LeaderboardsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ session?: string }>
+}) {
+  const { session: sessionId } = await searchParams
+  const data = await getLeaderboardData(sessionId)
 
   if (!data) {
     return <main style={{ padding: 60, textAlign: 'center', color: 'var(--muted)' }}>No active session.</main>
   }
 
-  const { session, rows } = data
+  const { session, rows, allSessions } = data
 
   return (
     <main>
@@ -200,6 +216,7 @@ export default async function LeaderboardsPage() {
           <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 8, letterSpacing: '0.4px' }}>
             {session.name} · Per-game averages · {rows.length} players
           </p>
+          <SessionPicker sessions={allSessions} currentId={session.id} basePath="/leaderboards" />
         </div>
       </div>
 
