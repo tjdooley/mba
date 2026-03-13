@@ -8,6 +8,7 @@ export async function loginAction(
   formData: FormData,
 ): Promise<{ error: string }> {
   const password = formData.get('password') as string
+  const from = formData.get('from') as string
   const secret = process.env.ADMIN_PASSWORD
 
   if (!secret) {
@@ -27,7 +28,9 @@ export async function loginAction(
     path: '/',
   })
 
-  redirect('/admin/dashboard')
+  // Redirect to the originally requested page, or dashboard by default
+  const target = from && from.startsWith('/admin') ? from : '/admin/dashboard'
+  redirect(target)
 }
 
 export async function logoutAction() {

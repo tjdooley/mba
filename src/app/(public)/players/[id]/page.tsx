@@ -299,7 +299,7 @@ export default async function PlayerProfilePage({ params }: { params: Promise<{ 
                             borderBottom: notLast ? '1px solid rgba(42,53,72,0.4)' : 'none',
                           }}>
                             <Link
-                              href={`/`}
+                              href={`/?session=${ss.session.id}`}
                               style={{ color: 'var(--text)', textDecoration: 'none' }}
                             >
                               {ss.session.name}

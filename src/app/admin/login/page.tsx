@@ -1,10 +1,13 @@
 'use client'
 
 import { useActionState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { loginAction } from './actions'
 
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(loginAction, null)
+  const searchParams = useSearchParams()
+  const from = searchParams.get('from') || ''
 
   return (
     <main style={{
@@ -44,6 +47,7 @@ export default function LoginPage() {
           padding: 28,
         }}>
           <form action={formAction}>
+            <input type="hidden" name="from" value={from} />
             <label style={{
               display: 'block',
               fontSize: 11,

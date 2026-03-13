@@ -12,7 +12,7 @@ const links = [
   { href: '/seasons',      label: 'Seasons'      },
 ]
 
-export function NavBar() {
+export function NavBar({ activeSessionName }: { activeSessionName?: string }) {
   const pathname = usePathname()
 
   return (
@@ -90,7 +90,7 @@ export function NavBar() {
           display: 'inline-block',
           animation: 'pulse 2s infinite',
         }} />
-        Spring 2026
+        {activeSessionName ?? 'MBA'}
       </div>
 
       <style>{`
