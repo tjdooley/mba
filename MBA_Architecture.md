@@ -48,43 +48,45 @@
   - SP23 playoff scores filled in (3 games); FA23–SP26 playoff structure seeded, scores to be entered via admin
 - `prisma generate` wired into build step (`"build": "prisma generate && next build"`)
 - `src/lib/prisma.ts` — Prisma singleton (Prisma 7 + PrismaPg adapter)
-- `src/app/layout.tsx` — Root layout with Bebas Neue, DM Sans, DM Mono via `next/font/google`
+- `src/app/layout.tsx` — Root layout with Bebas Neue, DM Sans, DM Mono via `next/font/google`; fetches active session name for NavBar badge
 - `src/app/globals.css` — CSS custom properties for full design token system
-- `src/components/NavBar.tsx` — Sticky nav with active route highlighting (`'use client'`)
-- `src/app/(public)/page.tsx` — Standings homepage with session picker (`?session=` param)
+- `src/components/NavBar.tsx` — Sticky nav with active route highlighting, dynamic session badge
+- `src/app/(public)/page.tsx` — Standings homepage with session picker (`?session=` param) + champion banner
 - `src/app/(public)/games/page.tsx` — Schedule + results with session picker + Upcoming/Results/Playoffs tabs
 - `src/components/ScheduleTabs.tsx` — Client component tab switcher for schedule page
 - `src/components/SessionPicker.tsx` — Shared session picker component (horizontal pill row, links via `?session=<id>`)
 - `src/app/(public)/games/[id]/page.tsx` — Box score page, full stat table with team totals (incl. subs)
 - `src/app/(public)/players/page.tsx` — Player directory split into Active Players (current session roster) and Alumni sections
-- `src/app/(public)/players/[id]/page.tsx` — Player profile: current session stats, career totals, season history
+- `src/app/(public)/players/[id]/page.tsx` — Player profile: current session stats, career totals, season history with session links
 - `src/app/(public)/leaderboards/page.tsx` — Stat leaderboards with session picker, filtered to rostered players only (excludes subs)
 - `src/app/(public)/teams/[id]/page.tsx` — Team detail page: roster, player session stats, game results, upcoming schedule
 - Player data cleanup complete — all 7 seasons normalized, no duplicate players, sub stats tracked correctly
-- `src/middleware.ts` — Auth guard for `/admin/*` routes, cookie-based auth against `ADMIN_PASSWORD` env var
-- `src/app/admin/login/` — Admin login page with `useActionState`, server action sets httpOnly cookie (7-day TTL)
-- `src/app/admin/layout.tsx` — Admin shell layout with nav (Dashboard, Games, Players, Teams) + logout
+- `src/middleware.ts` — Auth guard for `/admin/*` routes, cookie-based auth against `ADMIN_PASSWORD` env var, `?from=` redirect param
+- `src/app/admin/login/` — Admin login page with `useActionState`, server action sets httpOnly cookie (7-day TTL), redirects to `?from=` page after login
+- `src/app/admin/layout.tsx` — Admin shell layout with nav (Dashboard, Sessions, Games, Players, Teams) + logout
 - `src/app/admin/dashboard/page.tsx` — Overview: stat cards, missing stats alert, quick actions, recent games table
 - `src/app/admin/games/page.tsx` — Game list grouped by status (Needs Stats / Completed / Scheduled) with links to stats + score edit
-- `src/app/admin/games/[id]/stats/page.tsx` — Manual stat entry form: spreadsheet grid per team, auto-calculated PTS, saves + recomputes SessionStat/CareerStat/standings
-- `src/app/admin/games/[id]/edit/page.tsx` — Score-only editing: update home/away score + game status without entering player stats
+- `src/app/admin/games/[id]/stats/` — Stat entry with two modes:
+  - **Manual entry**: spreadsheet grid per team, auto-calculated PTS
+  - **Paste from Sheet**: paste TSV from Google Sheets, auto-matches player names to roster
+  - **Sub support**: add existing players as subs via dropdown, or create new players on the spot via modal
+  - Players with all-zero stats are excluded (no phantom games played)
+  - Saves + recomputes SessionStat/CareerStat/standings
+- `src/app/admin/games/[id]/edit/page.tsx` — Score-only editing + game deletion: update home/away score + game status, delete game with confirmation
 - `src/app/admin/games/new-playoff/page.tsx` — Create playoff games for any season: season selector, round picker, team dropdowns, optional score entry
+- `src/app/admin/games/new/page.tsx` — Bulk schedule regular season games: pick session, week, date, up to 4 matchups with court labels
+- `src/app/admin/players/` — Player management: create new players, edit existing (name, display name, email, active status), career stats summary on edit page
+- `src/app/admin/teams/` — Team list with session picker, create new teams (auto-adds captain to roster), team roster editor (add/remove players, set champion)
+- `src/app/admin/sessions/` — Session management: create new sessions, activate/deactivate, close season (sets end date)
 
 ### 🔲 Not Yet Built
-- Admin: player management (new, edit)
-- Admin: team roster editor + set champion
-- Admin: schedule regular season game
-- Champion recognition banner (P1)
-- CSV stat upload (P1)
 - Screenshot/AI stat import (P1) — Claude Vision API, ~$0.01–0.05 per image
 - Live game tracker (P2)
 - Sub list page (P2)
+- GroupMe weekly game announcements (P2)
 - Email notifications (P3)
 
 ### 🔧 Known Issues / Pending Cleanup
-- Player profile season history links to `/` as placeholder (needs session pages)
-- NavBar session badge hardcodes "Spring 2026" instead of pulling dynamically
-- Middleware `?from=` redirect-back not wired up in login action (always goes to `/admin/dashboard`)
 - `Player.isActive` field is never set in seed (all players default to `true`) — active/alumni split uses `TeamRoster` membership instead
 
 ---
@@ -305,12 +307,12 @@ model CareerStat {
 
 ```
 app/
-├── layout.tsx                        # Root layout + nav
+├── layout.tsx                        # Root layout + nav (fetches active session for NavBar badge)
 ├── (public)/
-│   ├── page.tsx                      # Home — session standings (supports ?session= param)
+│   ├── page.tsx                      # Home — session standings + champion banner (supports ?session= param)
 │   ├── players/
 │   │   ├── page.tsx                  # Player directory (Active Players + Alumni)
-│   │   └── [id]/page.tsx            # Player profile — session stats + career totals
+│   │   └── [id]/page.tsx            # Player profile — session stats + career totals + season history links
 │   ├── games/
 │   │   ├── page.tsx                  # Schedule / results list (supports ?session= param)
 │   │   └── [id]/page.tsx            # Box score
@@ -323,38 +325,56 @@ app/
 │   ├── layout.tsx                    # Admin shell nav + logout (auth via middleware.ts)
 │   ├── LogoutButton.tsx              # Client component for logout form
 │   ├── login/
-│   │   ├── page.tsx                  # Login page (useActionState)
-│   │   └── actions.ts               # Login/logout server actions
+│   │   ├── page.tsx                  # Login page (useActionState, Suspense for useSearchParams)
+│   │   └── actions.ts               # Login/logout server actions (honors ?from= redirect)
 │   ├── dashboard/page.tsx            # Overview — stat cards, missing stats alert, recent games
 │   ├── games/
 │   │   ├── page.tsx                  # Game list (grouped: Needs Stats / Completed / Scheduled)
+│   │   ├── new/
+│   │   │   ├── page.tsx             # Bulk schedule regular season games (week at a time)
+│   │   │   └── actions.ts
 │   │   ├── new-playoff/
 │   │   │   ├── page.tsx             # Create playoff game (any season)
 │   │   │   └── actions.ts
 │   │   └── [id]/
 │   │       ├── edit/
-│   │       │   ├── page.tsx         # Score-only editing
-│   │       │   └── actions.ts
+│   │       │   ├── page.tsx         # Score-only editing + game deletion
+│   │       │   └── actions.ts       # saveGameScore + deleteGame
 │   │       └── stats/
-│   │           ├── page.tsx         # Manual stat entry form
-│   │           └── actions.ts       # Save stats + recompute aggregates
-│   ├── games/new/page.tsx            # 🔲 Schedule a regular season game
-│   ├── players/                      # 🔲 Player management
-│   │   ├── new/page.tsx
-│   │   └── [id]/edit/page.tsx
-│   ├── teams/                        # 🔲 Team roster editor + set champion
-│   │   └── [id]/edit/page.tsx
+│   │           ├── page.tsx         # Stat entry (manual + paste from sheet + sub support)
+│   │           └── actions.ts       # saveStats + createSubPlayer + recompute aggregates
+│   ├── players/
+│   │   ├── page.tsx                 # Player list (Active / Not Rostered)
+│   │   ├── actions.ts               # createPlayer + updatePlayer
+│   │   ├── new/page.tsx             # Create player form
+│   │   └── [id]/edit/page.tsx       # Edit player + career stats summary
+│   ├── teams/
+│   │   ├── page.tsx                 # Team cards with session picker
+│   │   ├── actions.ts               # createTeam (auto-adds captain to roster)
+│   │   ├── new/page.tsx             # Create team form
+│   │   └── [id]/edit/
+│   │       ├── page.tsx             # Team roster editor + champion toggle
+│   │       └── actions.ts           # addPlayerToRoster + removePlayerFromRoster + setChampion
+│   ├── sessions/
+│   │   ├── page.tsx                 # Session list with management actions
+│   │   ├── actions.ts               # createSession + activateSession + closeSession
+│   │   └── new/page.tsx             # Create session form
 │   └── sub-list/page.tsx             # 🔲 P2 — Manage session sub list
 │
 ├── middleware.ts                      # Auth guard — cookie check for /admin/* (except /admin/login)
 │
 components/
-├── NavBar.tsx                        # Sticky nav with active route highlighting
+├── NavBar.tsx                        # Sticky nav with active route highlighting + dynamic session badge
 ├── ScheduleTabs.tsx                  # Client tab switcher for schedule page
 ├── SessionPicker.tsx                 # Shared session picker (horizontal pill row)
-├── StatEntryForm.tsx                 # Client stat entry grid (per-team tables)
-├── GameEditForm.tsx                  # Client score-only edit form
-└── PlayoffGameForm.tsx               # Client playoff game creation form
+├── StatEntryForm.tsx                 # Client stat entry grid (manual + paste + sub management + new player modal)
+├── GameEditForm.tsx                  # Client score-only edit + delete form
+├── PlayoffGameForm.tsx               # Client playoff game creation form
+├── ScheduleWeekForm.tsx              # Client bulk game scheduling form
+├── PlayerForm.tsx                    # Shared create/edit player form
+├── CreateTeamForm.tsx                # Client create team form
+├── TeamRosterEditor.tsx              # Client roster editor with champion toggle
+└── SessionActions.tsx                # Client session management buttons (activate / close)
 ```
 
 ---
@@ -393,23 +413,15 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
 
 ## 7. Stat Entry Flow
 
-Admins can enter stats three ways — all hit the same endpoint:
+Admins can enter stats via the game stat entry page (`/admin/games/[id]/stats`):
 
-1. **Manual entry form** — Admin selects a game, fills in each player's stat line
-2. **Screenshot / image import** — Admin uploads a photo of the scoresheet; server sends to Claude vision API, which parses it into structured stat rows. Admin reviews and confirms.
-3. **CSV upload** — Admin exports from the existing spreadsheet workflow and uploads. Server validates and bulk-inserts.
+1. **Manual entry** — Spreadsheet grid per team, fill in each player's stat line. Auto-calculated PTS column.
+2. **Paste from Sheet** — Copy rows from Google Sheets, paste into text areas (one per team). TSV is parsed using the standard column layout (Name, FGM, FGA, skip, 3PM, 3PA, skip, FTM, FTA, skip, skip, REB, AST, BLK, STL, TOV). Player names are matched to roster via exact, last-name, and partial matching. Unmatched names are checked against all players in the database and auto-added as subs.
+3. **Screenshot / image import** (🔲 not yet built) — Admin uploads a photo of the scoresheet; server sends to Claude Vision API, which parses it into structured stat rows. Admin reviews and confirms.
 
-```
-Admin uploads image/CSV   →   POST /api/games/[id]/stats/import
-                                   │
-                          Parse & validate
-                                   │
-                          Admin reviews preview
-                                   │
-                          POST /api/games/[id]/stats  (confirm)
-                                   │
-                          Recompute standings + session/career aggregates
-```
+**Sub support:** Each team's stat table has an "Add Sub" dropdown (existing players) and a "New Player" button (creates player on the spot via modal). Subs show an amber badge and can be removed. Players with all-zero stats are excluded from the save to prevent phantom game-played records.
+
+After save, the server recomputes SessionStat, CareerStat, and team standings in a single transaction.
 
 ---
 
@@ -608,12 +620,18 @@ npx prisma db seed
 15. ~~Add session picker to standings, schedule, leaderboards~~ ✅
 16. ~~Fix players page — active/alumni split by TeamRoster membership~~ ✅
 17. ~~Fix leaderboards — filter to rostered players only~~ ✅
-18. Build admin player management (create new, edit existing)
-19. Build admin team roster editor + set champion
-20. Enter playoff scores for FA23, SP24, FA24, SP25, FA25 via admin
-21. Champion recognition banner (P1)
-22. CSV stat upload (P1)
-23. Screenshot/AI stat import via Claude Vision (P1)
-24. Sub list page (P2)
-25. GroupMe weekly game announcements (P2) — Bot API, post upcoming week's schedule to league group chat (`GROUPME_BOT_ID` env var)
-26. Email notifications via Resend (P3)
+18. ~~Build admin player management (create new, edit existing)~~ ✅
+19. ~~Build admin team roster editor + set champion~~ ✅
+20. ~~Champion recognition banner on standings page~~ ✅
+21. ~~Build admin session management (create, activate, close)~~ ✅
+22. ~~Build admin bulk game scheduling (week at a time)~~ ✅
+23. ~~Build admin game deletion~~ ✅
+24. ~~Fix NavBar session badge — dynamic from active session~~ ✅
+25. ~~Wire up login ?from= redirect~~ ✅
+26. ~~Fix player profile season history links~~ ✅
+27. ~~Paste-from-spreadsheet stat entry + sub support + new player creation~~ ✅
+28. Enter playoff scores for FA23, SP24, FA24, SP25, FA25 via admin
+29. Screenshot/AI stat import via Claude Vision (P1)
+30. Sub list page (P2)
+31. GroupMe weekly game announcements (P2) — Bot API, post upcoming week's schedule to league group chat (`GROUPME_BOT_ID` env var)
+32. Email notifications via Resend (P3)
