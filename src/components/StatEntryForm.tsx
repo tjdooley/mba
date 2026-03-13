@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { saveStats, type SaveStatsInput, type StatRow } from '@/app/admin/games/[id]/stats/actions'
+import { saveStats, createSubPlayer, type SaveStatsInput, type StatRow } from '@/app/admin/games/[id]/stats/actions'
 
 export type PlayerInfo = {
   playerId: string
@@ -21,6 +21,11 @@ export type TeamInfo = {
   players: PlayerInfo[]
 }
 
+type SubOption = {
+  playerId: string
+  displayName: string
+}
+
 type Props = {
   gameId: string
   homeTeam: TeamInfo
@@ -28,6 +33,7 @@ type Props = {
   initialHomeScore: number
   initialAwayScore: number
   gameStatus: string
+  availableSubs?: SubOption[]
 }
 
 type PlayerStats = {
@@ -137,7 +143,7 @@ function matchPlayer(name: string, players: PlayerInfo[]): PlayerInfo | null {
 
 // ─── MAIN COMPONENT ─────────────────────────────────────────────────────────
 
-export function StatEntryForm({ gameId, homeTeam, awayTeam, initialHomeScore, initialAwayScore, gameStatus }: Props) {
+export function StatEntryForm({ gameId, homeTeam, awayTeam, initialHomeScore, initialAwayScore, gameStatus, availableSubs = [] }: Props) {
   const allPlayers = [...homeTeam.players, ...awayTeam.players]
   const initialStats: Record<string, PlayerStats> = {}
   for (const p of allPlayers) {
@@ -150,11 +156,62 @@ export function StatEntryForm({ gameId, homeTeam, awayTeam, initialHomeScore, in
   const [isPending, startTransition] = useTransition()
   const [result, setResult] = useState<{ success: boolean; error?: string } | null>(null)
 
+  // Sub tracking: extra players added to each team beyond the roster
+  const [homeSubs, setHomeSubs] = useState<PlayerInfo[]>([])
+  const [awaySubs, setAwaySubs] = useState<PlayerInfo[]>([])
+
+  // New player modal state
+  const [newPlayerModal, setNewPlayerModal] = useState<{ team: 'home' | 'away' } | null>(null)
+
   // Paste mode state
   const [mode, setMode] = useState<'manual' | 'paste'>('manual')
   const [homePaste, setHomePaste] = useState('')
   const [awayPaste, setAwayPaste] = useState('')
   const [pasteResult, setPasteResult] = useState<{ matched: string[]; unmatched: string[] } | null>(null)
+
+  // All player IDs currently in the grid (roster + added subs)
+  const usedPlayerIds = new Set([
+    ...homeTeam.players.map((p) => p.playerId),
+    ...awayTeam.players.map((p) => p.playerId),
+    ...homeSubs.map((p) => p.playerId),
+    ...awaySubs.map((p) => p.playerId),
+  ])
+
+  function addSub(team: 'home' | 'away', playerId: string) {
+    const sub = availableSubs.find((s) => s.playerId === playerId)
+    if (!sub) return
+    const playerInfo: PlayerInfo = { playerId: sub.playerId, displayName: sub.displayName }
+    if (team === 'home') {
+      setHomeSubs((prev) => [...prev, playerInfo])
+    } else {
+      setAwaySubs((prev) => [...prev, playerInfo])
+    }
+    setStats((prev) => ({ ...prev, [playerId]: { ...EMPTY_STATS } }))
+  }
+
+  function handleNewPlayerCreated(team: 'home' | 'away', player: { id: string; displayName: string }) {
+    const playerInfo: PlayerInfo = { playerId: player.id, displayName: player.displayName }
+    if (team === 'home') {
+      setHomeSubs((prev) => [...prev, playerInfo])
+    } else {
+      setAwaySubs((prev) => [...prev, playerInfo])
+    }
+    setStats((prev) => ({ ...prev, [player.id]: { ...EMPTY_STATS } }))
+    setNewPlayerModal(null)
+  }
+
+  function removeSub(team: 'home' | 'away', playerId: string) {
+    if (team === 'home') {
+      setHomeSubs((prev) => prev.filter((p) => p.playerId !== playerId))
+    } else {
+      setAwaySubs((prev) => prev.filter((p) => p.playerId !== playerId))
+    }
+    setStats((prev) => {
+      const next = { ...prev }
+      delete next[playerId]
+      return next
+    })
+  }
 
   function updateStat(playerId: string, key: keyof PlayerStats, value: number) {
     setStats((prev) => ({
@@ -163,14 +220,22 @@ export function StatEntryForm({ gameId, homeTeam, awayTeam, initialHomeScore, in
     }))
   }
 
-  function teamTotalPoints(team: TeamInfo) {
-    return team.players.reduce((sum, p) => sum + calcPoints(stats[p.playerId] || EMPTY_STATS), 0)
+  function teamTotalPoints(team: TeamInfo, subs: PlayerInfo[]) {
+    return [...team.players, ...subs].reduce((sum, p) => sum + calcPoints(stats[p.playerId] || EMPTY_STATS), 0)
   }
 
   function handleParse() {
     const matched: string[] = []
     const unmatched: string[] = []
     const newStats = { ...stats }
+    const newHomeSubs: PlayerInfo[] = [...homeSubs]
+    const newAwaySubs: PlayerInfo[] = [...awaySubs]
+
+    // All available players for sub matching (roster + available subs)
+    const allSubOptions = availableSubs.map((s) => ({
+      playerId: s.playerId,
+      displayName: s.displayName,
+    }))
 
     // Parse home team
     const homeRows = parseTSV(homePaste)
@@ -180,7 +245,15 @@ export function StatEntryForm({ gameId, homeTeam, awayTeam, initialHomeScore, in
         newStats[player.playerId] = row.stats
         matched.push(`${row.name} → ${player.displayName}`)
       } else {
-        unmatched.push(row.name)
+        // Try matching against available subs
+        const sub = matchPlayer(row.name, allSubOptions)
+        if (sub && !newHomeSubs.some((s) => s.playerId === sub.playerId) && !newAwaySubs.some((s) => s.playerId === sub.playerId)) {
+          newHomeSubs.push({ playerId: sub.playerId, displayName: sub.displayName })
+          newStats[sub.playerId] = row.stats
+          matched.push(`${row.name} → ${sub.displayName} (sub)`)
+        } else {
+          unmatched.push(row.name)
+        }
       }
     }
 
@@ -192,21 +265,30 @@ export function StatEntryForm({ gameId, homeTeam, awayTeam, initialHomeScore, in
         newStats[player.playerId] = row.stats
         matched.push(`${row.name} → ${player.displayName}`)
       } else {
-        unmatched.push(row.name)
+        const sub = matchPlayer(row.name, allSubOptions)
+        if (sub && !newHomeSubs.some((s) => s.playerId === sub.playerId) && !newAwaySubs.some((s) => s.playerId === sub.playerId)) {
+          newAwaySubs.push({ playerId: sub.playerId, displayName: sub.displayName })
+          newStats[sub.playerId] = row.stats
+          matched.push(`${row.name} → ${sub.displayName} (sub)`)
+        } else {
+          unmatched.push(row.name)
+        }
       }
     }
 
     setStats(newStats)
+    setHomeSubs(newHomeSubs)
+    setAwaySubs(newAwaySubs)
     setPasteResult({ matched, unmatched })
     setMode('manual')
   }
 
   function handleSave() {
     const statRows: StatRow[] = []
-    for (const p of homeTeam.players) {
+    for (const p of [...homeTeam.players, ...homeSubs]) {
       statRows.push({ playerId: p.playerId, teamId: homeTeam.teamId, ...stats[p.playerId] })
     }
-    for (const p of awayTeam.players) {
+    for (const p of [...awayTeam.players, ...awaySubs]) {
       statRows.push({ playerId: p.playerId, teamId: awayTeam.teamId, ...stats[p.playerId] })
     }
 
@@ -336,7 +418,7 @@ export function StatEntryForm({ gameId, homeTeam, awayTeam, initialHomeScore, in
                 }}
               />
               <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-                Stat Total: {teamTotalPoints(homeTeam)}
+                Stat Total: {teamTotalPoints(homeTeam, homeSubs)}
               </div>
             </div>
 
@@ -359,15 +441,27 @@ export function StatEntryForm({ gameId, homeTeam, awayTeam, initialHomeScore, in
                 }}
               />
               <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-                Stat Total: {teamTotalPoints(awayTeam)}
+                Stat Total: {teamTotalPoints(awayTeam, awaySubs)}
               </div>
             </div>
           </div>
 
           {/* Team stat tables */}
-          <TeamStatTable team={homeTeam} stats={stats} onUpdate={updateStat} label="Home" />
+          <TeamStatTable team={homeTeam} subs={homeSubs} stats={stats} onUpdate={updateStat} label="Home" onRemoveSub={(pid) => removeSub('home', pid)} />
+          <AddSubDropdown
+            availableSubs={availableSubs}
+            usedPlayerIds={usedPlayerIds}
+            onAdd={(pid) => addSub('home', pid)}
+            onCreateNew={() => setNewPlayerModal({ team: 'home' })}
+          />
           <div style={{ height: 24 }} />
-          <TeamStatTable team={awayTeam} stats={stats} onUpdate={updateStat} label="Away" />
+          <TeamStatTable team={awayTeam} subs={awaySubs} stats={stats} onUpdate={updateStat} label="Away" onRemoveSub={(pid) => removeSub('away', pid)} />
+          <AddSubDropdown
+            availableSubs={availableSubs}
+            usedPlayerIds={usedPlayerIds}
+            onAdd={(pid) => addSub('away', pid)}
+            onCreateNew={() => setNewPlayerModal({ team: 'away' })}
+          />
 
           {/* Save button */}
           <div style={{ marginTop: 28, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
@@ -395,6 +489,14 @@ export function StatEntryForm({ gameId, homeTeam, awayTeam, initialHomeScore, in
             )}
           </div>
         </>
+      )}
+
+      {/* New player modal */}
+      {newPlayerModal && (
+        <NewPlayerModal
+          onClose={() => setNewPlayerModal(null)}
+          onCreated={(player) => handleNewPlayerCreated(newPlayerModal.team, player)}
+        />
       )}
 
       <style>{`
@@ -454,13 +556,18 @@ function PasteArea({
 // ─── TEAM STAT TABLE ────────────────────────────────────────────────────────
 
 function TeamStatTable({
-  team, stats, onUpdate, label,
+  team, subs, stats, onUpdate, label, onRemoveSub,
 }: {
   team: TeamInfo
+  subs: PlayerInfo[]
   stats: Record<string, PlayerStats>
   onUpdate: (pid: string, key: keyof PlayerStats, val: number) => void
   label: string
+  onRemoveSub: (playerId: string) => void
 }) {
+  const allPlayers = [...team.players, ...subs]
+  const subIds = new Set(subs.map((s) => s.playerId))
+
   return (
     <div style={{
       background: 'var(--surface)',
@@ -514,10 +621,11 @@ function TeamStatTable({
             </tr>
           </thead>
           <tbody>
-            {team.players.map((p, i) => {
+            {allPlayers.map((p, i) => {
               const ps = stats[p.playerId] || EMPTY_STATS
               const pts = calcPoints(ps)
-              const notLast = i < team.players.length - 1
+              const notLast = i < allPlayers.length - 1
+              const isSub = subIds.has(p.playerId)
               return (
                 <tr key={p.playerId} className="stat-row">
                   <td style={{
@@ -527,6 +635,29 @@ function TeamStatTable({
                     whiteSpace: 'nowrap',
                   }}>
                     {p.displayName}
+                    {isSub && (
+                      <>
+                        <span style={{
+                          marginLeft: 6, fontSize: 9, fontWeight: 700, letterSpacing: '0.5px',
+                          textTransform: 'uppercase', color: 'var(--amber)',
+                          background: 'rgba(245,166,35,0.12)', border: '1px solid rgba(245,166,35,0.25)',
+                          borderRadius: 3, padding: '1px 5px', verticalAlign: 'middle',
+                        }}>
+                          Sub
+                        </span>
+                        <button
+                          onClick={() => onRemoveSub(p.playerId)}
+                          title="Remove sub"
+                          style={{
+                            marginLeft: 4, background: 'none', border: 'none',
+                            color: 'var(--muted)', cursor: 'pointer', fontSize: 14,
+                            padding: '0 2px', verticalAlign: 'middle',
+                          }}
+                        >
+                          ×
+                        </button>
+                      </>
+                    )}
                   </td>
                   {STAT_COLS.map((c) => (
                     <td key={c.key} style={{
@@ -562,6 +693,193 @@ function TeamStatTable({
             })}
           </tbody>
         </table>
+      </div>
+    </div>
+  )
+}
+
+// ─── ADD SUB DROPDOWN ───────────────────────────────────────────────────────
+
+function AddSubDropdown({
+  availableSubs, usedPlayerIds, onAdd, onCreateNew,
+}: {
+  availableSubs: SubOption[]
+  usedPlayerIds: Set<string>
+  onAdd: (playerId: string) => void
+  onCreateNew: () => void
+}) {
+  const options = availableSubs.filter((s) => !usedPlayerIds.has(s.playerId))
+
+  return (
+    <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
+      {options.length > 0 && (
+        <select
+          value=""
+          onChange={(e) => { if (e.target.value) onAdd(e.target.value) }}
+          style={{
+            background: 'var(--mid)', border: '1px solid var(--border)', borderRadius: 6,
+            padding: '6px 10px', fontSize: 12, color: 'var(--muted)',
+            outline: 'none', cursor: 'pointer', appearance: 'none',
+          }}
+        >
+          <option value="">+ Add Sub…</option>
+          {options.map((s) => (
+            <option key={s.playerId} value={s.playerId}>{s.displayName}</option>
+          ))}
+        </select>
+      )}
+      <button
+        onClick={onCreateNew}
+        style={{
+          background: 'none', border: '1px dashed var(--border)', borderRadius: 6,
+          padding: '6px 10px', fontSize: 12, color: 'var(--muted)',
+          cursor: 'pointer',
+        }}
+      >
+        + New Player
+      </button>
+    </div>
+  )
+}
+
+// ─── NEW PLAYER MODAL ───────────────────────────────────────────────────────
+
+function NewPlayerModal({
+  onClose, onCreated,
+}: {
+  onClose: () => void
+  onCreated: (player: { id: string; displayName: string }) => void
+}) {
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  // Auto-generate display name from first + last
+  const autoDisplay = `${firstName} ${lastName}`.trim()
+
+  async function handleCreate() {
+    const name = displayName.trim() || autoDisplay
+    if (!firstName.trim() || !name) {
+      setError('First name is required.')
+      return
+    }
+    setSaving(true)
+    setError('')
+    const res = await createSubPlayer({
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      displayName: name,
+    })
+    setSaving(false)
+    if (res.success && res.player) {
+      onCreated(res.player)
+    } else {
+      setError(res.error ?? 'Failed to create player.')
+    }
+  }
+
+  const inputStyle = {
+    width: '100%', boxSizing: 'border-box' as const,
+    background: 'var(--mid)', border: '1px solid var(--border)', borderRadius: 8,
+    padding: '9px 12px', fontSize: 13, color: 'var(--text)', outline: 'none',
+  }
+
+  const labelStyle = {
+    display: 'block' as const, fontSize: 11, fontWeight: 600,
+    letterSpacing: '1px', textTransform: 'uppercase' as const,
+    color: 'var(--muted)', marginBottom: 6,
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 24,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 12, padding: 28, width: '100%', maxWidth: 400,
+        }}
+      >
+        <h3 style={{
+          fontFamily: 'var(--font-display)', fontSize: 22,
+          letterSpacing: 2, color: 'var(--text)', marginBottom: 20,
+        }}>
+          New Player
+        </h3>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>First Name *</label>
+              <input
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                autoFocus
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Last Name</label>
+              <input
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Display Name</label>
+            <input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder={autoDisplay || 'e.g. Johnny B'}
+              style={inputStyle}
+            />
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+              Leave blank to use "{autoDisplay || '...'}"
+            </div>
+          </div>
+
+          {error && (
+            <div style={{ fontSize: 12, color: 'var(--red)' }}>{error}</div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+            <button
+              onClick={handleCreate}
+              disabled={saving}
+              style={{
+                padding: '10px 24px',
+                background: saving ? 'rgba(29,185,84,0.5)' : 'linear-gradient(135deg, #1db954, #128f3e)',
+                border: 'none', borderRadius: 8,
+                fontSize: 13, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase',
+                color: '#fff', cursor: saving ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {saving ? 'Creating…' : 'Create & Add'}
+            </button>
+            <button
+              onClick={onClose}
+              style={{
+                padding: '10px 20px', background: 'none',
+                border: '1px solid var(--border)', borderRadius: 8,
+                fontSize: 13, fontWeight: 600, color: 'var(--muted)', cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

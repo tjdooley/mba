@@ -27,6 +27,33 @@ export type SaveStatsInput = {
   stats: StatRow[]
 }
 
+export async function createSubPlayer(input: {
+  firstName: string
+  lastName: string
+  displayName: string
+}): Promise<{ success: boolean; error?: string; player?: { id: string; displayName: string } }> {
+  try {
+    if (!input.firstName.trim() || !input.displayName.trim()) {
+      return { success: false, error: 'First name and display name are required.' }
+    }
+
+    const player = await prisma.player.create({
+      data: {
+        firstName: input.firstName.trim(),
+        lastName: input.lastName.trim(),
+        displayName: input.displayName.trim(),
+      },
+      select: { id: true, displayName: true },
+    })
+
+    revalidatePath('/', 'layout')
+    return { success: true, player }
+  } catch (err) {
+    console.error('createSubPlayer error:', err)
+    return { success: false, error: 'Failed to create player.' }
+  }
+}
+
 export async function saveStats(input: SaveStatsInput): Promise<{ success: boolean; error?: string }> {
   try {
     const game = await prisma.game.findUnique({

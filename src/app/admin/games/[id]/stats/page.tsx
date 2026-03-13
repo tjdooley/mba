@@ -4,32 +4,38 @@ import Link from 'next/link'
 import { StatEntryForm, type TeamInfo } from '@/components/StatEntryForm'
 
 async function getGameData(gameId: string) {
-  const game = await prisma.game.findUnique({
-    where: { id: gameId },
-    include: {
-      homeTeam: {
-        include: {
-          captain: { select: { id: true, displayName: true } },
-          roster: {
-            include: { player: { select: { id: true, displayName: true } } },
-            orderBy: { player: { lastName: 'asc' } },
+  const [game, allPlayers] = await Promise.all([
+    prisma.game.findUnique({
+      where: { id: gameId },
+      include: {
+        homeTeam: {
+          include: {
+            captain: { select: { id: true, displayName: true } },
+            roster: {
+              include: { player: { select: { id: true, displayName: true } } },
+              orderBy: { player: { lastName: 'asc' } },
+            },
           },
         },
-      },
-      awayTeam: {
-        include: {
-          captain: { select: { id: true, displayName: true } },
-          roster: {
-            include: { player: { select: { id: true, displayName: true } } },
-            orderBy: { player: { lastName: 'asc' } },
+        awayTeam: {
+          include: {
+            captain: { select: { id: true, displayName: true } },
+            roster: {
+              include: { player: { select: { id: true, displayName: true } } },
+              orderBy: { player: { lastName: 'asc' } },
+            },
           },
         },
+        gameStats: true,
       },
-      gameStats: true,
-    },
-  })
+    }),
+    prisma.player.findMany({
+      select: { id: true, displayName: true },
+      orderBy: { lastName: 'asc' },
+    }),
+  ])
 
-  return game
+  return { game, allPlayers }
 }
 
 function weekLabel(game: { week: number | null; isPlayoff: boolean; playoffRound: number | null }) {
@@ -46,7 +52,7 @@ export default async function StatEntryPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const game = await getGameData(id)
+  const { game, allPlayers } = await getGameData(id)
 
   if (!game) notFound()
 
@@ -70,20 +76,48 @@ export default async function StatEntryPage({
     ]),
   )
 
+  // Include any players who have existing stats but aren't on the current roster
+  // (e.g. subs from a previous save)
+  const rosterPlayerIds = new Set([
+    ...game.homeTeam.roster.map((r) => r.player.id),
+    ...game.awayTeam.roster.map((r) => r.player.id),
+  ])
+
+  const gameStats = game.gameStats
+
   function buildTeamInfo(team: NonNullable<typeof game>['homeTeam']): TeamInfo {
+    const rosterPlayers = team.roster.map((r) => ({
+      playerId: r.player.id,
+      displayName: r.player.displayName,
+      existing: existingStats.get(r.player.id),
+    }))
+
+    // Add back any subs who had stats saved previously but aren't on roster
+    const existingSubs = gameStats
+      .filter((gs) => gs.teamId === team.id && !rosterPlayerIds.has(gs.playerId))
+      .map((gs) => {
+        const player = allPlayers.find((p) => p.id === gs.playerId)
+        return {
+          playerId: gs.playerId,
+          displayName: player?.displayName ?? 'Unknown',
+          existing: existingStats.get(gs.playerId),
+        }
+      })
+
     return {
       teamId: team.id,
       captainName: team.captain.displayName,
-      players: team.roster.map((r) => ({
-        playerId: r.player.id,
-        displayName: r.player.displayName,
-        existing: existingStats.get(r.player.id),
-      })),
+      players: [...rosterPlayers, ...existingSubs],
     }
   }
 
   const homeTeam = buildTeamInfo(game.homeTeam)
   const awayTeam = buildTeamInfo(game.awayTeam)
+
+  // Available subs: all players not already on either roster
+  const availableSubs = allPlayers
+    .filter((p) => !rosterPlayerIds.has(p.id))
+    .map((p) => ({ playerId: p.id, displayName: p.displayName }))
 
   return (
     <main style={{ maxWidth: 960, margin: '0 auto', padding: '36px 24px 60px' }}>
@@ -120,6 +154,7 @@ export default async function StatEntryPage({
         initialHomeScore={game.homeScore}
         initialAwayScore={game.awayScore}
         gameStatus={game.status}
+        availableSubs={availableSubs}
       />
     </main>
   )
