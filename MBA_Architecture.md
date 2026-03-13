@@ -33,6 +33,7 @@
 | Live game tracker | In-game stat entry via tracker UI | P2 |
 | Sub list | Session sub pool — admin editable, viewable by admins + captains | P2 |
 | Email notifications | Game results, schedule changes via Resend | P3 |
+| GroupMe announcements | Weekly game schedule posted to league GroupMe via bot API | P2 |
 
 ---
 
@@ -584,6 +585,7 @@ npx prisma db seed
 | Neon | Postgres database | 0.5 GB storage |
 | Vercel | Hosting + deploys | 100 GB bandwidth |
 | Resend | Email notifications (P3) | 3,000 emails/mo |
+| GroupMe Bot API | Weekly schedule announcements to league group chat | Free (no limit) |
 
 ---
 
@@ -613,4 +615,5 @@ npx prisma db seed
 22. CSV stat upload (P1)
 23. Screenshot/AI stat import via Claude Vision (P1)
 24. Sub list page (P2)
-25. Email notifications via Resend (P3)
+25. GroupMe weekly game announcements (P2) — Bot API, post upcoming week's schedule to league group chat (`GROUPME_BOT_ID` env var)
+26. Email notifications via Resend (P3)
