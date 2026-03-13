@@ -283,13 +283,21 @@ export function StatEntryForm({ gameId, homeTeam, awayTeam, initialHomeScore, in
     setMode('manual')
   }
 
+  function hasAnyStats(ps: PlayerStats) {
+    return ps.fgMade > 0 || ps.fgAttempted > 0 || ps.threesMade > 0 || ps.threesAttempted > 0
+      || ps.ftMade > 0 || ps.ftAttempted > 0 || ps.rebounds > 0 || ps.assists > 0
+      || ps.blocks > 0 || ps.steals > 0 || ps.turnovers > 0
+  }
+
   function handleSave() {
     const statRows: StatRow[] = []
     for (const p of [...homeTeam.players, ...homeSubs]) {
-      statRows.push({ playerId: p.playerId, teamId: homeTeam.teamId, ...stats[p.playerId] })
+      const ps = stats[p.playerId] || EMPTY_STATS
+      if (hasAnyStats(ps)) statRows.push({ playerId: p.playerId, teamId: homeTeam.teamId, ...ps })
     }
     for (const p of [...awayTeam.players, ...awaySubs]) {
-      statRows.push({ playerId: p.playerId, teamId: awayTeam.teamId, ...stats[p.playerId] })
+      const ps = stats[p.playerId] || EMPTY_STATS
+      if (hasAnyStats(ps)) statRows.push({ playerId: p.playerId, teamId: awayTeam.teamId, ...ps })
     }
 
     const input: SaveStatsInput = { gameId, homeScore, awayScore, stats: statRows }
