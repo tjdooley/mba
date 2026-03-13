@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { saveGameScore } from '@/app/admin/games/[id]/edit/actions'
+import { saveGameScore, deleteGame } from '@/app/admin/games/[id]/edit/actions'
 
 type Props = {
   gameId: string
@@ -143,6 +143,40 @@ export function GameEditForm({ gameId, homeCaptain, awayCaptain, initialHomeScor
             {result.success ? 'Score saved!' : result.error}
           </span>
         )}
+      </div>
+
+      {/* Delete */}
+      <div style={{
+        marginTop: 24, paddingTop: 20,
+        borderTop: '1px solid var(--border)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--red)' }}>Delete Game</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+            Permanently remove this game and any associated stats.
+          </div>
+        </div>
+        <button
+          onClick={() => {
+            if (confirm('Delete this game? This cannot be undone.')) {
+              startTransition(async () => {
+                await deleteGame(gameId)
+              })
+            }
+          }}
+          disabled={isPending}
+          style={{
+            padding: '7px 16px', borderRadius: 6,
+            fontSize: 12, fontWeight: 600,
+            cursor: isPending ? 'not-allowed' : 'pointer',
+            border: '1px solid rgba(232,64,64,0.4)',
+            background: 'rgba(232,64,64,0.1)',
+            color: 'var(--red)',
+          }}
+        >
+          Delete
+        </button>
       </div>
     </div>
   )

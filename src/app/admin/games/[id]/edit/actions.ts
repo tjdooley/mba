@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { GameStatus } from '@/generated/prisma/client'
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 
 export async function saveGameScore(input: {
   gameId: string
@@ -82,5 +83,74 @@ export async function saveGameScore(input: {
   } catch (err) {
     console.error('saveGameScore error:', err)
     return { success: false, error: 'Failed to save score.' }
+  }
+}
+
+export async function deleteGame(gameId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const game = await prisma.game.findUnique({
+      where: { id: gameId },
+      select: { sessionId: true },
+    })
+    if (!game) return { success: false, error: 'Game not found.' }
+
+    const sessionId = game.sessionId
+
+    // Delete game stats first (FK constraint), then the game
+    await prisma.$transaction([
+      prisma.gameStat.deleteMany({ where: { gameId } }),
+      prisma.game.delete({ where: { id: gameId } }),
+    ])
+
+    // Recompute standings
+    const teams = await prisma.team.findMany({
+      where: { sessionId },
+      select: { id: true, division: true },
+    })
+
+    const finalGames = await prisma.game.findMany({
+      where: { sessionId, status: GameStatus.FINAL, isPlayoff: false },
+      select: { homeTeamId: true, awayTeamId: true, homeScore: true, awayScore: true },
+    })
+
+    const teamDivision = new Map(teams.map((t) => [t.id, t.division]))
+
+    for (const team of teams) {
+      let wins = 0, losses = 0, divWins = 0, divLosses = 0, ptDiff = 0
+
+      for (const g of finalGames) {
+        if (g.homeTeamId === team.id) {
+          ptDiff += g.homeScore - g.awayScore
+          if (g.homeScore > g.awayScore) {
+            wins++
+            if (teamDivision.get(g.awayTeamId) === team.division) divWins++
+          } else {
+            losses++
+            if (teamDivision.get(g.awayTeamId) === team.division) divLosses++
+          }
+        } else if (g.awayTeamId === team.id) {
+          ptDiff += g.awayScore - g.homeScore
+          if (g.awayScore > g.homeScore) {
+            wins++
+            if (teamDivision.get(g.homeTeamId) === team.division) divWins++
+          } else {
+            losses++
+            if (teamDivision.get(g.homeTeamId) === team.division) divLosses++
+          }
+        }
+      }
+
+      await prisma.team.update({
+        where: { id: team.id },
+        data: { wins, losses, divisionWins: divWins, divisionLosses: divLosses, pointDifferential: ptDiff },
+      })
+    }
+
+    revalidatePath('/', 'layout')
+    redirect('/admin/games')
+  } catch (err) {
+    if (err instanceof Error && err.message === 'NEXT_REDIRECT') throw err
+    console.error('deleteGame error:', err)
+    return { success: false, error: 'Failed to delete game.' }
   }
 }

@@ -51,6 +51,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div style={{ display: 'flex', gap: 2, overflowX: 'auto', scrollbarWidth: 'none' }}>
           {[
             { href: '/admin/dashboard', label: 'Dashboard' },
+            { href: '/admin/sessions',  label: 'Sessions'  },
             { href: '/admin/games',     label: 'Games'     },
             { href: '/admin/players',   label: 'Players'   },
             { href: '/admin/teams',     label: 'Teams'     },

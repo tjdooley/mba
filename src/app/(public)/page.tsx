@@ -12,8 +12,37 @@ async function getStandingsData(sessionId?: string) {
       select: { id: true, name: true, isActive: true },
     }),
     sessionId
-      ? prisma.session.findUnique({ where: { id: sessionId } })
-      : prisma.session.findFirst({ where: { isActive: true }, orderBy: { startDate: 'desc' } }),
+      ? prisma.session.findUnique({
+          where: { id: sessionId },
+          include: {
+            champion: {
+              include: {
+                captain: { select: { displayName: true } },
+                roster: {
+                  where: { isSub: false },
+                  include: { player: { select: { displayName: true } } },
+                  orderBy: { player: { lastName: 'asc' } },
+                },
+              },
+            },
+          },
+        })
+      : prisma.session.findFirst({
+          where: { isActive: true },
+          orderBy: { startDate: 'desc' },
+          include: {
+            champion: {
+              include: {
+                captain: { select: { displayName: true } },
+                roster: {
+                  where: { isSub: false },
+                  include: { player: { select: { displayName: true } } },
+                  orderBy: { player: { lastName: 'asc' } },
+                },
+              },
+            },
+          },
+        }),
   ])
 
   if (!session) return null
@@ -314,6 +343,43 @@ export default async function HomePage({
           <SessionPicker sessions={allSessions} currentId={session.id} basePath="/" />
         </div>
       </div>
+
+      {/* Champion banner */}
+      {session.champion && (
+        <div style={{ maxWidth: 900, margin: '0 auto', padding: '20px 24px 0' }}>
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(245,166,35,0.08), rgba(245,166,35,0.03))',
+            border: '1px solid rgba(245,166,35,0.25)',
+            borderRadius: 12,
+            padding: '20px 24px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            flexWrap: 'wrap',
+          }}>
+            <span style={{ fontSize: 36, lineHeight: 1 }}>🏆</span>
+            <div style={{ flex: 1 }}>
+              <div style={{
+                fontSize: 10, fontWeight: 700, letterSpacing: '1.5px',
+                textTransform: 'uppercase', color: 'var(--amber)', marginBottom: 4,
+              }}>
+                {session.name} Champion
+              </div>
+              <div style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 28, letterSpacing: 2, color: 'var(--text)', lineHeight: 1,
+              }}>
+                {session.champion.captain.displayName}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
+                {session.champion.roster
+                  .map((r) => r.player.displayName)
+                  .join(' · ')}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Standings */}
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '28px 24px 60px' }}>
