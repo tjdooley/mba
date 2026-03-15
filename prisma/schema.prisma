@@ -170,6 +170,7 @@ model SubPlayer {
   name        String
   position    String?
   contactInfo String?
+  draftRound  Int?
   notes       String?
   isAvailable Boolean @default(true)
 

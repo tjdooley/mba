@@ -980,6 +980,60 @@ async function main() {
   }
 
   console.log("  ✅ Career stats complete");
+
+  // ── 8. Sub List (SP26 only) ─────────────────────────────────────────────
+  console.log("\n📋 Seeding sub list...");
+  const sp26Session = await prisma.session.findFirst({ where: { period: "SPRING", year: 2026 } });
+  if (sp26Session) {
+    const subWb = XLSX.readFile(path.join(DATA_DIR, "MBA_Spring_2026_Workbook.xlsx"));
+    const subSheet = subWb.Sheets["2026 Sublist"];
+    if (subSheet) {
+      const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(subSheet, { header: 1 });
+      let subCount = 0;
+
+      function parseSub(name: string | null | undefined, round: number | null | undefined, pos: string | null | undefined, contact: string | null | undefined, notes: string | null | undefined) {
+        if (!name || typeof name !== "string") return;
+        const trimmed = name.trim();
+        if (!trimmed || /^(name|injury)/i.test(trimmed)) return;
+        const draftRound = typeof round === "number" ? round : null;
+        const position = (typeof pos === "string" && pos.trim()) ? pos.trim() : null;
+        const contactInfo = (typeof contact === "string" && contact.trim()) ? contact.trim() : null;
+        const noteStr = (typeof notes === "string" && notes.trim()) ? notes.trim() : null;
+
+        return {
+          sessionId: sp26Session.id,
+          name: trimmed,
+          draftRound,
+          position,
+          contactInfo,
+          notes: noteStr,
+        };
+      }
+
+      for (const row of rows) {
+        // Left side: cols 0-3 (name, round, position, contact), notes in col 4
+        const leftSub = parseSub(
+          row[0] as string, row[1] as number, row[2] as string, row[3] as string, row[4] as string,
+        );
+        if (leftSub) {
+          await prisma.subPlayer.create({ data: leftSub });
+          subCount++;
+        }
+
+        // Right side: cols 5-8 (name, round, position, contact), notes in col 9
+        const rightSub = parseSub(
+          row[5] as string, row[6] as number, row[7] as string, row[8] as string, row[9] as string,
+        );
+        if (rightSub) {
+          await prisma.subPlayer.create({ data: rightSub });
+          subCount++;
+        }
+      }
+
+      console.log(`  ✅ ${subCount} subs seeded for SP26`);
+    }
+  }
+
   console.log("\n🏆 Seed complete!\n");
 }
 
