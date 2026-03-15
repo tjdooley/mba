@@ -188,32 +188,57 @@ function SubTable({
             </tr>
           </thead>
           <tbody>
-            {rounds.map((round) => (
-              grouped.get(round)!.map((sub, i) => (
+            {rounds.map((round) => ([
+              <tr key={`round-${round}`}>
+                <td colSpan={6} style={{
+                  padding: '10px 14px 6px',
+                  fontSize: 11, fontWeight: 700, letterSpacing: '1.5px',
+                  textTransform: 'uppercase', color: 'var(--green)',
+                  borderBottom: '1px solid rgba(29,185,84,0.2)',
+                  background: 'rgba(29,185,84,0.04)',
+                }}>
+                  Round {round}
+                  <span style={{ marginLeft: 8, fontSize: 10, color: 'var(--muted)', fontWeight: 500, letterSpacing: '0.5px' }}>
+                    ({grouped.get(round)!.length} subs)
+                  </span>
+                </td>
+              </tr>,
+              ...grouped.get(round)!.map((sub) => (
                 <SubRow
                   key={sub.id}
                   sub={sub}
-                  showRoundLabel={i === 0}
-                  roundCount={grouped.get(round)!.length}
                   onEdit={onEdit}
                   onToggle={onToggle}
                   onDelete={onDelete}
                   isPending={isPending}
                 />
-              ))
-            ))}
-            {noRound.map((sub) => (
-              <SubRow
-                key={sub.id}
-                sub={sub}
-                showRoundLabel={false}
-                roundCount={0}
-                onEdit={onEdit}
-                onToggle={onToggle}
-                onDelete={onDelete}
-                isPending={isPending}
-              />
-            ))}
+              )),
+            ]))}
+            {noRound.length > 0 && (
+              <>
+                <tr>
+                  <td colSpan={6} style={{
+                    padding: '10px 14px 6px',
+                    fontSize: 11, fontWeight: 700, letterSpacing: '1.5px',
+                    textTransform: 'uppercase', color: 'var(--muted)',
+                    borderBottom: '1px solid rgba(42,53,72,0.4)',
+                    background: 'rgba(107,124,147,0.04)',
+                  }}>
+                    No Round
+                  </td>
+                </tr>
+                {noRound.map((sub) => (
+                  <SubRow
+                    key={sub.id}
+                    sub={sub}
+                    onEdit={onEdit}
+                    onToggle={onToggle}
+                    onDelete={onDelete}
+                    isPending={isPending}
+                  />
+                ))}
+              </>
+            )}
           </tbody>
         </table>
       </div>
@@ -222,11 +247,9 @@ function SubTable({
 }
 
 function SubRow({
-  sub, showRoundLabel, roundCount, onEdit, onToggle, onDelete, isPending,
+  sub, onEdit, onToggle, onDelete, isPending,
 }: {
   sub: SubPlayer
-  showRoundLabel: boolean
-  roundCount: number
   onEdit: (sub: SubPlayer) => void
   onToggle: (id: string) => void
   onDelete: (id: string, name: string) => void
